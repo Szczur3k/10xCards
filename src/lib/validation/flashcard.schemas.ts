@@ -268,4 +268,96 @@ export const validateUUID = (id: string, fieldName: string = 'id') => {
       statusCode: 400
     };
   }
-}; 
+};
+
+// Generate flashcards request validation (obsługuje generate i regenerate)
+export const generateFlashcardsSchema = z.object({
+  source_text: z.string()
+    .min(10, 'Tekst źródłowy musi mieć co najmniej 10 znaków')
+    .max(50000, 'Tekst źródłowy nie może przekraczać 50,000 znaków')
+    .optional(),
+  source_text_id: uuidSchema.optional(),
+  max_flashcards: z.number()
+    .int('Liczba fiszek musi być liczbą całkowitą')
+    .min(1, 'Minimalna liczba fiszek to 1')
+    .max(100, 'Maksymalna liczba fiszek to 100')
+    .optional()
+    .default(20),
+  model: z.string()
+    .min(1, 'Nazwa modelu nie może być pusta')
+    .optional(),
+  category_ids: z.array(uuidSchema)
+    .max(10, 'Maksymalnie 10 kategorii')
+    .optional(),
+  group_ids: z.array(uuidSchema)
+    .max(10, 'Maksymalnie 10 grup')
+    .optional()
+}).refine(
+  (data) => data.source_text || data.source_text_id,
+  {
+    message: 'Wymagany jest source_text (dla nowego) lub source_text_id (dla regeneracji)',
+    path: ['source_text']
+  }
+).refine(
+  (data) => !(data.source_text && data.source_text_id),
+  {
+    message: 'Nie można podać jednocześnie source_text i source_text_id',
+    path: ['source_text']
+  }
+);
+
+// Validation functions
+export function validateGenerateFlashcardsRequest(data: unknown) {
+  try {
+    return {
+      success: true,
+      data: generateFlashcardsSchema.parse(data)
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const details: Record<string, string[]> = {};
+      error.errors.forEach(err => {
+        const path = err.path.join('.');
+        if (!details[path]) details[path] = [];
+        details[path].push(err.message);
+      });
+      
+      return {
+        success: false,
+        error: {
+          type: 'VALIDATION_ERROR',
+          message: 'Nieprawidłowe dane żądania',
+          details,
+          statusCode: 400
+        }
+      };
+    }
+    
+    return {
+      success: false,
+      error: {
+        type: 'VALIDATION_ERROR',
+        message: 'Błąd walidacji danych',
+        statusCode: 400
+      }
+    };
+  }
+}
+
+export function validateSourceTextId(id: string) {
+  try {
+    return {
+      success: true,
+      data: uuidSchema.parse(id)
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: {
+        type: 'VALIDATION_ERROR',
+        message: 'Nieprawidłowy identyfikator tekstu źródłowego',
+        statusCode: 400
+      }
+    };
+  }
+} 

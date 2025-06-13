@@ -137,6 +137,7 @@ export interface FlashcardDTO {
   creation_type: FlashcardType;
   status: FlashcardStatus | null;
   source_text_id: string | null;
+  source_text?: Pick<SourceTextDTO, 'id' | 'content'>;
   categories: Pick<CategoryDTO, 'id' | 'name'>[];
   groups: Pick<GroupDTO, 'id' | 'name'>[];
   created_at: string | null;
@@ -166,7 +167,8 @@ export interface UpdateFlashcardRequestDTO {
 
 // AI Generation DTOs
 export interface GenerateFlashcardsRequestDTO {
-  source_text: string;
+  source_text?: string;
+  source_text_id?: string;
   max_flashcards?: number;
   model?: string;
   category_ids?: string[];
@@ -395,7 +397,8 @@ export interface UpdateFlashcardCommand {
 }
 
 export interface GenerateFlashcardsCommand {
-  source_text: string;
+  source_text?: string;
+  source_text_id?: string;
   user_id: string;
   max_flashcards: number;
   model?: string;
@@ -435,6 +438,18 @@ export interface RecordFlashcardStatsCommand {
   generation_time_ms: number;
   token_count: number;
   acceptance_rate?: number;
+}
+
+// Source Text Command Models
+export interface GetSourceTextsCommand {
+  user_id: string;
+  page: number;
+  limit: number;
+}
+
+export interface GetSourceTextByIdCommand {
+  id: string;
+  user_id: string;
 }
 
 // ============================================================================

@@ -4,6 +4,38 @@
 -- Cel: Wstawienie podstawowych kategorii i grup do bazy danych
 -- Data: 2024-12-04
 
+-- Mock user dla developmentu (używany przez mock auth)
+INSERT INTO auth.users (
+  id,
+  instance_id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data
+) VALUES (
+  '550e8400-e29b-41d4-a716-446655440000',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'test@example.com',
+  '$2a$10$dummy.hash.for.development.only',
+  now(),
+  now(),
+  now(),
+  '{"provider":"email","providers":["email"]}',
+  '{}'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Dodaj usera do public.users (trigger może nie działać podczas seed)
+INSERT INTO public.users (id, role) VALUES 
+  ('550e8400-e29b-41d4-a716-446655440000', 'user')
+ON CONFLICT (id) DO NOTHING;
+
 -- wstawienie domyślnych kategorii
 insert into public.categories (name, description) values
   ('Programowanie', 'Pytania i pojęcia związane z programowaniem'),

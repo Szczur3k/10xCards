@@ -345,6 +345,10 @@ export class FlashcardService {
       .from('flashcards')
       .select(`
         *,
+        source_texts (
+          id,
+          content
+        ),
         flashcard_categories (
           categories (
             id,
@@ -397,6 +401,10 @@ export class FlashcardService {
       creation_type: flashcard.creation_type,
       status: flashcard.status,
       source_text_id: flashcard.source_text_id,
+      source_text: flashcard.source_texts ? {
+        id: flashcard.source_texts.id,
+        content: flashcard.source_texts.content
+      } : undefined,
       categories: flashcard.flashcard_categories?.map((fc: any) => ({
         id: fc.categories?.id || '',
         name: fc.categories?.name || ''
