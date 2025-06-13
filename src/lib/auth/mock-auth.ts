@@ -221,6 +221,26 @@ export function createMockSupabaseClient() {
               if (resolve) resolve(result);
               return Promise.resolve(result);
             },
+            single: async () => {
+              console.log(`🔧 Mock SELECT single from ${table}`);
+              
+              if (table === 'flashcards') {
+                let filteredData = [...MOCK_FLASHCARDS];
+                
+                // Apply filters to find specific flashcard
+                Object.entries(mockQuery.filters).forEach(([column, value]) => {
+                  filteredData = filteredData.filter((item: any) => item[column] === value);
+                });
+                
+                if (filteredData.length === 0) {
+                  return { data: null, error: new Error('Flashcard not found') };
+                }
+                
+                return { data: filteredData[0], error: null };
+              }
+              
+              return { data: null, error: new Error('Mock: Single select not implemented for this table') };
+            },
             in: (column: string, values: string[]) => {
               console.log(`🔧 Mock SELECT from ${table} WHERE ${column} IN`, values);
               
@@ -246,10 +266,48 @@ export function createMockSupabaseClient() {
         
         return buildQueryMethods();
       },
+      update: (data: any) => ({
+        eq: (column: string, value: any) => ({
+          select: (fields: string) => ({
+            single: async () => {
+              console.log(`🔧 Mock UPDATE ${table} SET`, data, `WHERE ${column} = ${value}`);
+              
+              if (table === 'flashcards') {
+                // Find the flashcard in mock data
+                const flashcard = MOCK_FLASHCARDS.find((f: any) => f[column] === value);
+                if (!flashcard) {
+                  return { data: null, error: new Error('Flashcard not found') };
+                }
+                
+                // Update the flashcard data
+                const updatedFlashcard = {
+                  ...flashcard,
+                  ...data,
+                  updated_at: new Date().toISOString()
+                };
+                
+                return { data: updatedFlashcard, error: null };
+              }
+              
+              return { data: null, error: new Error('Mock: Update not implemented for this table') };
+            }
+          })
+        })
+      }),
       delete: () => ({
         eq: (column: string, value: any) => ({
           then: async (resolve: (result: any) => void) => {
             console.log(`🔧 Mock DELETE from ${table} WHERE ${column} = ${value}`);
+            
+            if (table === 'flashcards') {
+              // Check if flashcard exists
+              const flashcard = MOCK_FLASHCARDS.find((f: any) => f[column] === value);
+              if (!flashcard) {
+                resolve({ data: null, error: new Error('Flashcard not found') });
+                return;
+              }
+            }
+            
             resolve({ data: null, error: null });
           }
         })

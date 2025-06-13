@@ -209,20 +209,60 @@ export interface AIModelDTO {
   quality_score: number;
   recommended_for: string[];
   is_default: boolean;
+  is_available: boolean;
+  requires_api_key: boolean;
+  unavailable_reason?: string;
 }
 
 export interface ModelSelectionStrategyDTO {
   criteria: string[];
   weights: {
+    availability: number;
     quality: number;
     cost: number;
     speed: number;
   };
+  fallback_to_free: boolean;
+}
+
+export interface ModelStatsDTO {
+  total_models: number;
+  available_models: number;
+  free_models: number;
+  paid_models: number;
 }
 
 export interface ModelsResponseDTO {
   models: AIModelDTO[];
   default_selection_strategy: ModelSelectionStrategyDTO;
+  stats: ModelStatsDTO;
+}
+
+// Environment Configuration Types
+export interface ModelConfigDTO {
+  id: string;
+  name: string;
+  provider: string;
+  cost_per_1k_tokens: number;
+  max_tokens: number;
+  average_response_time_ms: number;
+  quality_score: number;
+  recommended_for: string[];
+  requires_api_key: boolean;
+  env_key: string | null;
+  is_free: boolean;
+}
+
+export interface ModelAvailabilityDTO {
+  model_id: string;
+  is_available: boolean;
+  unavailable_reason?: string;
+  api_key_configured: boolean;
+}
+
+// Command Models for AI Models
+export interface GetAvailableModelsCommand {
+  user_id: string;
 }
 
 // Review DTOs

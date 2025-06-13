@@ -64,9 +64,51 @@ export const uuidSchema = z.string().regex(UUID_REGEX, 'Nieprawidłowy format UU
 export const uuidArraySchema = z.array(uuidSchema).optional();
 
 /**
- * Type inference from schema
+ * Schema for updating an existing flashcard
+ * All fields are optional - validates UpdateFlashcardRequestDTO structure
+ */
+export const updateFlashcardSchema = z.object({
+  front: z
+    .string()
+    .min(1, 'Treść przodu fiszki nie może być pusta')
+    .max(200, 'Treść przodu fiszki nie może przekraczać 200 znaków')
+    .trim()
+    .optional(),
+  
+  back: z
+    .string()
+    .min(1, 'Treść tyłu fiszki nie może być pusta')
+    .max(500, 'Treść tyłu fiszki nie może przekraczać 500 znaków')
+    .trim()
+    .optional(),
+  
+  status: z
+    .enum(FLASHCARD_STATUSES)
+    .optional(),
+  
+  category_ids: z
+    .array(
+      z.string().regex(UUID_REGEX, 'Nieprawidłowy format UUID kategorii')
+    )
+    .max(10, 'Maksymalnie 10 kategorii na fiszkę')
+    .optional(),
+  
+  group_ids: z
+    .array(
+      z.string().regex(UUID_REGEX, 'Nieprawidłowy format UUID grupy')
+    )
+    .max(10, 'Maksymalnie 10 grup na fiszkę')
+    .optional()
+}).refine(
+  (data) => Object.keys(data).length > 0,
+  'Wymagane jest podanie przynajmniej jednego pola do aktualizacji'
+);
+
+/**
+ * Type inference from schemas
  */
 export type CreateFlashcardInput = z.infer<typeof createFlashcardSchema>;
+export type UpdateFlashcardInput = z.infer<typeof updateFlashcardSchema>;
 
 /**
  * Schema for GET /api/flashcards query parameters
@@ -180,5 +222,50 @@ export const validateGetFlashcardsQuery = async (searchParams: URLSearchParams) 
       };
     }
     throw error;
+  }
+};
+
+/**
+ * Validation function for updating flashcard
+ */
+export const validateUpdateFlashcardRequest = async (data: unknown) => {
+  try {
+    return updateFlashcardSchema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const formattedErrors: Record<string, string[]> = {};
+      
+      error.errors.forEach((err) => {
+        const field = err.path.join('.');
+        if (!formattedErrors[field]) {
+          formattedErrors[field] = [];
+        }
+        formattedErrors[field].push(err.message);
+      });
+      
+      throw {
+        type: 'VALIDATION_ERROR',
+        message: 'Nieprawidłowe dane do aktualizacji',
+        details: formattedErrors,
+        statusCode: 400
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Validation function for UUID (used for path parameters)
+ */
+export const validateUUID = (id: string, fieldName: string = 'id') => {
+  try {
+    return uuidSchema.parse(id);
+  } catch (error) {
+    throw {
+      type: 'VALIDATION_ERROR',
+      message: `Nieprawidłowy format ${fieldName}`,
+      details: { [fieldName]: ['Nieprawidłowy format UUID'] },
+      statusCode: 400
+    };
   }
 }; 

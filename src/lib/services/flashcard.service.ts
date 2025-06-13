@@ -6,7 +6,8 @@ import type {
   FlashcardInsert,
   FlashcardQueryParams,
   FlashcardListResponseDTO,
-  PaginationDTO
+  PaginationDTO,
+  UpdateFlashcardCommand
 } from '../../types';
 
 /**
@@ -331,5 +332,199 @@ export class FlashcardService {
     // For MVP, all users have access to all categories and groups
     // This method can be extended for user-specific permissions
     return true;
+  }
+
+  /**
+   * Gets a single flashcard by ID for the authenticated user
+   * @param id - UUID of the flashcard
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<FlashcardDTO> - Complete flashcard data with categories and groups
+   */
+  async getById(id: string, userId: string): Promise<FlashcardDTO> {
+    const { data: flashcard, error: flashcardError } = await this.supabase
+      .from('flashcards')
+      .select(`
+        *,
+        flashcard_categories (
+          categories (
+            id,
+            name
+          )
+        ),
+        flashcard_groups (
+          groups (
+            id,
+            name
+          )
+        )
+      `)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (flashcardError) {
+      if (flashcardError.message === 'Flashcard not found') {
+        throw {
+          type: 'NOT_FOUND_ERROR',
+          message: 'Fiszka nie została znaleziona',
+          details: { id: ['Fiszka o podanym ID nie istnieje lub nie masz do niej dostępu'] },
+          statusCode: 404
+        };
+      }
+      
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas pobierania fiszki',
+        details: { database: [flashcardError.message] },
+        statusCode: 500
+      };
+    }
+
+    if (!flashcard) {
+      throw {
+        type: 'NOT_FOUND_ERROR',
+        message: 'Fiszka nie została znaleziona',
+        details: { id: ['Fiszka o podanym ID nie istnieje lub nie masz do niej dostępu'] },
+        statusCode: 404
+      };
+    }
+
+    // Transform data to FlashcardDTO format
+    return {
+      id: flashcard.id,
+      front: flashcard.front,
+      back: flashcard.back,
+      creation_type: flashcard.creation_type,
+      status: flashcard.status,
+      source_text_id: flashcard.source_text_id,
+      categories: flashcard.flashcard_categories?.map((fc: any) => ({
+        id: fc.categories?.id || '',
+        name: fc.categories?.name || ''
+      })).filter((c: any) => c.id) || [],
+      groups: flashcard.flashcard_groups?.map((fg: any) => ({
+        id: fg.groups?.id || '',
+        name: fg.groups?.name || ''
+      })).filter((g: any) => g.id) || [],
+      created_at: flashcard.created_at,
+      updated_at: flashcard.updated_at
+    };
+  }
+
+  /**
+   * Updates an existing flashcard
+   * @param command - UpdateFlashcardCommand with data to update
+   * @returns Promise<FlashcardDTO> - Updated flashcard with full data
+   */
+  async updateFlashcard(command: UpdateFlashcardCommand): Promise<FlashcardDTO> {
+    // First verify the flashcard exists and user has access
+    const existingFlashcard = await this.getById(command.id, command.user_id);
+
+    // Prepare update data
+    const updateData: any = {};
+    if (command.front !== undefined) updateData.front = command.front;
+    if (command.back !== undefined) updateData.back = command.back;
+    if (command.status !== undefined) updateData.status = command.status;
+    updateData.updated_at = new Date().toISOString();
+
+    // Update the flashcard
+    const { data: updatedFlashcard, error: updateError } = await this.supabase
+      .from('flashcards')
+      .update(updateData)
+      .eq('id', command.id)
+      .eq('user_id', command.user_id)
+      .select('*')
+      .single();
+
+    if (updateError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas aktualizacji fiszki',
+        details: { database: [updateError.message] },
+        statusCode: 500
+      };
+    }
+
+    if (!updatedFlashcard) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Nie udało się zaktualizować fiszki',
+        statusCode: 500
+      };
+    }
+
+    // Handle category and group updates if provided
+    let categories = existingFlashcard.categories;
+    let groups = existingFlashcard.groups;
+
+    if (command.category_ids !== undefined) {
+      // Delete existing category relationships
+      await this.supabase
+        .from('flashcard_categories')
+        .delete()
+        .eq('flashcard_id', command.id);
+
+      // Create new category relationships if any
+      if (command.category_ids.length > 0) {
+        categories = await this.createCategoryRelationships(command.id, command.category_ids);
+      } else {
+        categories = [];
+      }
+    }
+
+    if (command.group_ids !== undefined) {
+      // Delete existing group relationships
+      await this.supabase
+        .from('flashcard_groups')
+        .delete()
+        .eq('flashcard_id', command.id);
+
+      // Create new group relationships if any
+      if (command.group_ids.length > 0) {
+        groups = await this.createGroupRelationships(command.id, command.group_ids);
+      } else {
+        groups = [];
+      }
+    }
+
+    // Return complete FlashcardDTO
+    return {
+      id: updatedFlashcard.id,
+      front: updatedFlashcard.front,
+      back: updatedFlashcard.back,
+      creation_type: updatedFlashcard.creation_type,
+      status: updatedFlashcard.status,
+      source_text_id: updatedFlashcard.source_text_id,
+      categories,
+      groups,
+      created_at: updatedFlashcard.created_at,
+      updated_at: updatedFlashcard.updated_at
+    };
+  }
+
+  /**
+   * Deletes a flashcard
+   * @param id - UUID of the flashcard to delete
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<void>
+   */
+  async deleteFlashcard(id: string, userId: string): Promise<void> {
+    // First verify the flashcard exists and user has access
+    await this.getById(id, userId);
+
+    // Delete the flashcard (cascading deletes will handle relationships)
+    const { error: deleteError } = await this.supabase
+      .from('flashcards')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas usuwania fiszki',
+        details: { database: [deleteError.message] },
+        statusCode: 500
+      };
+    }
   }
 } 
