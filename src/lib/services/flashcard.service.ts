@@ -7,7 +7,8 @@ import type {
   FlashcardQueryParams,
   FlashcardListResponseDTO,
   PaginationDTO,
-  UpdateFlashcardCommand
+  UpdateFlashcardCommand,
+  ReviewFlashcardCommand
 } from '../../types';
 
 /**
@@ -534,5 +535,99 @@ export class FlashcardService {
         statusCode: 500
       };
     }
+  }
+
+  /**
+   * Reviews an AI-generated flashcard (accept/reject/edit)
+   * @param command - ReviewFlashcardCommand with review data
+   * @returns Promise<FlashcardDTO> - Updated flashcard with full data
+   */
+  async reviewFlashcard(command: ReviewFlashcardCommand): Promise<FlashcardDTO> {
+    // First verify the flashcard exists and user has access
+    const existingFlashcard = await this.getById(command.flashcardId, command.userId);
+
+    // Validate that this is an AI-generated flashcard
+    if (existingFlashcard.creation_type !== 'llm') {
+      throw {
+        type: 'CONFLICT_ERROR',
+        message: 'Można recenzować tylko fiszki wygenerowane przez AI',
+        details: { creation_type: ['Fiszka nie została wygenerowana przez AI'] },
+        statusCode: 409
+      };
+    }
+
+    // Validate status transitions for accept/reject actions
+    if (command.action === 'accept' || command.action === 'reject') {
+      if (existingFlashcard.status === 'published' || existingFlashcard.status === 'archived') {
+        throw {
+          type: 'CONFLICT_ERROR',
+          message: 'Fiszka została już zrecenzowana i ma status końcowy',
+          details: { status: ['Nie można ponownie recenzować fiszki o statusie końcowym'] },
+          statusCode: 409
+        };
+      }
+    }
+
+    // Prepare update data based on action
+    const updateData: any = {
+      updated_at: new Date().toISOString()
+    };
+
+    switch (command.action) {
+      case 'accept':
+        updateData.status = 'published';
+        break;
+      
+      case 'reject':
+        updateData.status = 'archived';
+        break;
+      
+      case 'edit':
+        if (command.front) updateData.front = command.front;
+        if (command.back) updateData.back = command.back;
+        if (command.status) updateData.status = command.status;
+        break;
+    }
+
+    // Update the flashcard in database
+    const { data: updatedFlashcard, error: updateError } = await this.supabase
+      .from('flashcards')
+      .update(updateData)
+      .eq('id', command.flashcardId)
+      .eq('user_id', command.userId)
+      .select('*')
+      .single();
+
+    if (updateError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas aktualizacji fiszki',
+        details: { database: [updateError.message] },
+        statusCode: 500
+      };
+    }
+
+    if (!updatedFlashcard) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Nie udało się zaktualizować fiszki',
+        statusCode: 500
+      };
+    }
+
+    // Return complete FlashcardDTO with existing categories and groups
+    return {
+      id: updatedFlashcard.id,
+      front: updatedFlashcard.front,
+      back: updatedFlashcard.back,
+      creation_type: updatedFlashcard.creation_type,
+      status: updatedFlashcard.status,
+      source_text_id: updatedFlashcard.source_text_id,
+      source_text: existingFlashcard.source_text,
+      categories: existingFlashcard.categories,
+      groups: existingFlashcard.groups,
+      created_at: updatedFlashcard.created_at,
+      updated_at: updatedFlashcard.updated_at
+    };
   }
 } 

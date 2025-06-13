@@ -440,6 +440,15 @@ export interface RecordFlashcardStatsCommand {
   acceptance_rate?: number;
 }
 
+export interface ReviewFlashcardCommand {
+  flashcardId: string;
+  userId: string;
+  action: 'accept' | 'reject' | 'edit';
+  front?: string;
+  back?: string;
+  status?: FlashcardStatus;
+}
+
 // Source Text Command Models
 export interface GetSourceTextsCommand {
   user_id: string;

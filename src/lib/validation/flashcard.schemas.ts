@@ -360,4 +360,103 @@ export function validateSourceTextId(id: string) {
       }
     };
   }
-} 
+}
+
+/**
+ * Schema for reviewing a flashcard (accept/reject/edit)
+ * Validates ReviewFlashcardRequestDTO structure
+ */
+export const reviewFlashcardSchema = z.object({
+  action: z
+    .enum(['accept', 'reject', 'edit'], {
+      errorMap: () => ({ message: 'Akcja musi być jedną z: accept, reject, edit' })
+    }),
+  
+  front: z
+    .string()
+    .min(1, 'Treść przodu fiszki nie może być pusta')
+    .max(200, 'Treść przodu fiszki nie może przekraczać 200 znaków')
+    .trim()
+    .optional(),
+  
+  back: z
+    .string()
+    .min(1, 'Treść tyłu fiszki nie może być pusta')
+    .max(500, 'Treść tyłu fiszki nie może przekraczać 500 znaków')
+    .trim()
+    .optional(),
+  
+  status: z
+    .enum(FLASHCARD_STATUSES)
+    .optional()
+}).refine(
+  (data) => {
+    // For 'edit' action, front and back are required
+    if (data.action === 'edit') {
+      return data.front !== undefined && data.back !== undefined;
+    }
+    return true;
+  },
+  {
+    message: 'Dla akcji edit wymagane są pola front i back',
+    path: ['front', 'back']
+  }
+);
+
+/**
+ * Schema for flashcard ID validation in path parameters
+ */
+export const flashcardIdSchema = z.string().regex(UUID_REGEX, 'Nieprawidłowy format UUID fiszki');
+
+/**
+ * Type inference from review schema
+ */
+export type ReviewFlashcardInput = z.infer<typeof reviewFlashcardSchema>;
+
+/**
+ * Validation function for reviewing flashcard request
+ */
+export const validateReviewFlashcardRequest = async (data: unknown) => {
+  try {
+    return reviewFlashcardSchema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const formattedErrors: Record<string, string[]> = {};
+      
+      error.errors.forEach((err) => {
+        const field = err.path.join('.');
+        if (!formattedErrors[field]) {
+          formattedErrors[field] = [];
+        }
+        formattedErrors[field].push(err.message);
+      });
+      
+      throw {
+        type: 'VALIDATION_ERROR',
+        message: 'Nieprawidłowe dane wejściowe',
+        details: formattedErrors,
+        statusCode: 400
+      };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Validation function for flashcard ID in path
+ */
+export const validateFlashcardId = (id: string) => {
+  try {
+    return flashcardIdSchema.parse(id);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw {
+        type: 'VALIDATION_ERROR',
+        message: 'Nieprawidłowy identyfikator fiszki',
+        details: { id: ['Nieprawidłowy format UUID fiszki'] },
+        statusCode: 400
+      };
+    }
+    throw error;
+  }
+}; 
