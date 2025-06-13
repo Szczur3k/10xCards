@@ -449,6 +449,20 @@ export interface ReviewFlashcardCommand {
   status?: FlashcardStatus;
 }
 
+export interface SignupCommand {
+  email: string;
+  password: string;
+}
+
+export interface SigninCommand {
+  email: string;
+  password: string;
+}
+
+export interface SignoutCommand {
+  accessToken: string;
+}
+
 // Source Text Command Models
 export interface GetSourceTextsCommand {
   user_id: string;
