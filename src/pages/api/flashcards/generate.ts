@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../../db/database.types';
 import type { 
   GenerateFlashcardsRequestDTO, 
@@ -9,17 +8,9 @@ import type {
 import { AIGenerationService } from '../../../lib/services/ai-generation.service';
 import { validateGenerateFlashcardsRequest } from '../../../lib/validation/flashcard.schemas';
 import { isMockAuthEnabled, getMockUser } from '../../../lib/auth/mock-auth';
-
-const supabaseUrl = import.meta.env.SUPABASE_URL;
-const supabaseKey = import.meta.env.SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+import { supabaseClient } from '../../../db/supabase.client';
 
 export const POST: APIRoute = async ({ request }) => {
-  const supabase = createClient<Database>(supabaseUrl, supabaseKey);
-
   try {
     // 1. Authentication
     let userId: string;
@@ -41,7 +32,7 @@ export const POST: APIRoute = async ({ request }) => {
       }
 
       const token = authHeader.substring(7);
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
       if (authError || !user) {
         const errorResponse: ErrorResponseDTO = {
@@ -83,7 +74,7 @@ export const POST: APIRoute = async ({ request }) => {
     const validatedData = validation.data!;
 
     // 3. Generate or regenerate flashcards
-    const aiGenerationService = new AIGenerationService(supabase);
+    const aiGenerationService = new AIGenerationService(supabaseClient);
     
     const result = await aiGenerationService.generateOrRegenerateFlashcards({
       source_text: validatedData.source_text,

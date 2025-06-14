@@ -5,11 +5,28 @@ import type {
   ModelStatsDTO,
   GetAvailableModelsCommand 
 } from '../../types';
-import { 
-  AI_MODELS_CONFIG, 
-  DEFAULT_SELECTION_STRATEGY, 
-  API_KEY_ENV_MAP 
-} from '../config/ai-models.config';
+import { supabaseClient } from '../../db/supabase.client';
+
+/**
+ * Default model selection strategy configuration
+ */
+const DEFAULT_SELECTION_STRATEGY = {
+  criteria: ["availability", "quality_score", "cost_efficiency", "response_time"],
+  weights: {
+    availability: 1.0,  // Availability is most important
+    quality: 0.5,       // Quality is secondary
+    cost: 0.3,          // Cost optimization
+    speed: 0.2          // Speed is least important for flashcard generation
+  },
+  fallback_to_free: true
+};
+
+/**
+ * Environment variable mapping for API key providers
+ */
+const API_KEY_ENV_MAP = {
+  openrouter: "OPENROUTER_API_KEY"
+} as const;
 
 /**
  * Service for managing AI models availability and selection
@@ -27,25 +44,49 @@ export class AIModelService {
    */
   async getAvailableModels(command: GetAvailableModelsCommand): Promise<ModelsResponseDTO> {
     try {
+      // Get models from database
+      const { data: dbModels, error: dbError } = await supabaseClient
+        .from('ai_models')
+        .select('*');
+
+      if (dbError) {
+        console.error('Database error fetching AI models:', dbError);
+        throw {
+          type: 'DATABASE_ERROR',
+          message: 'Błąd pobierania modeli z bazy danych',
+          details: { database: [dbError.message] },
+          statusCode: 500
+        };
+      }
+
+      if (!dbModels || dbModels.length === 0) {
+        throw {
+          type: 'SERVICE_UNAVAILABLE_ERROR',
+          message: 'Brak dostępnych modeli AI',
+          details: { models: ['Nie znaleziono modeli w bazie danych'] },
+          statusCode: 503
+        };
+      }
+
       // Get availability status for all models
-      const modelAvailabilities = await this.checkAllModelsAvailability();
+      const modelAvailabilities = await this.checkAllModelsAvailability(dbModels);
       
-      // Transform config models to DTOs with availability
-      const models: AIModelDTO[] = AI_MODELS_CONFIG.map(config => {
-        const availability = modelAvailabilities.find(a => a.model_id === config.id);
+      // Transform database models to DTOs with availability
+      const models: AIModelDTO[] = dbModels.map((dbModel: any) => {
+        const availability = modelAvailabilities.find(a => a.model_id === dbModel.id);
         
         return {
-          id: config.id,
-          name: config.name,
-          provider: config.provider,
-          cost_per_1k_tokens: config.cost_per_1k_tokens,
-          max_tokens: config.max_tokens,
-          average_response_time_ms: config.average_response_time_ms,
-          quality_score: config.quality_score,
-          recommended_for: config.recommended_for,
+          id: dbModel.id,
+          name: dbModel.name,
+          provider: dbModel.provider,
+          cost_per_1k_tokens: dbModel.cost_per_1k_tokens,
+          max_tokens: dbModel.max_tokens,
+          average_response_time_ms: dbModel.average_response_time_ms,
+          quality_score: dbModel.quality_score,
+          recommended_for: dbModel.recommended_for,
           is_default: false, // Will be calculated based on strategy
           is_available: availability?.is_available || false,
-          requires_api_key: config.requires_api_key,
+          requires_api_key: dbModel.requires_api_key,
           unavailable_reason: availability?.unavailable_reason
         };
       });
@@ -99,12 +140,13 @@ export class AIModelService {
 
   /**
    * Checks availability of all models by verifying API keys
+   * @param models - Array of models to check availability for
    * @returns Promise<ModelAvailabilityDTO[]> - Availability status for all models
    */
-  private async checkAllModelsAvailability(): Promise<ModelAvailabilityDTO[]> {
+  private async checkAllModelsAvailability(models: any[]): Promise<ModelAvailabilityDTO[]> {
     const availabilities: ModelAvailabilityDTO[] = [];
 
-    for (const model of AI_MODELS_CONFIG) {
+    for (const model of models) {
       const availability = await this.checkModelAvailability(model);
       availabilities.push(availability);
     }
@@ -114,7 +156,7 @@ export class AIModelService {
 
   /**
    * Checks if a specific model is available based on API key requirements
-   * @param model - ModelConfigDTO to check
+   * @param model - Model from database to check
    * @returns Promise<ModelAvailabilityDTO> - Availability status
    */
   private async checkModelAvailability(model: any): Promise<ModelAvailabilityDTO> {
@@ -127,8 +169,19 @@ export class AIModelService {
       };
     }
 
+    // Get env key based on provider
+    const envKey = API_KEY_ENV_MAP[model.provider as keyof typeof API_KEY_ENV_MAP];
+    if (!envKey) {
+      return {
+        model_id: model.id,
+        is_available: false,
+        unavailable_reason: "Unknown provider",
+        api_key_configured: false
+      };
+    }
+
     // Check if API key is configured for paid models
-    const apiKeyConfigured = this.isAPIKeyConfigured(model.env_key);
+    const apiKeyConfigured = this.isAPIKeyConfigured(envKey);
     
     if (!apiKeyConfigured) {
       return {

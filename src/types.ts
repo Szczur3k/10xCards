@@ -491,6 +491,57 @@ export interface ApiResponse<T = any> {
   pagination?: PaginationDTO;
 }
 
+// ============================================================================
+// FRONTEND UI TYPES (for React components)
+// ============================================================================
+
+// Filter state for flashcards list view
+export interface FilterState {
+  search: string;
+  status: FlashcardStatus[];
+  creation_type: FlashcardType[];
+  category_ids: string[];
+  group_ids: string[];
+  sort: 'created_at' | 'updated_at';
+  order: 'asc' | 'desc';
+}
+
+// Bulk operation state for flashcards management
+export interface BulkOperationState {
+  selectedIds: string[];
+  operation?: 'delete' | 'change_status' | 'assign_categories' | 'assign_groups';
+  isProcessing: boolean;
+  progress: number;
+}
+
+// Generation progress state for AI generation
+export interface GenerationProgressState {
+  isGenerating: boolean;
+  current: number;
+  total: number;
+  status: 'idle' | 'generating' | 'completed' | 'error';
+  generatedCards: GeneratedFlashcardDTO[];
+  startTime?: number;
+  estimatedTimeRemaining?: number;
+}
+
+// Review state for AI-generated flashcards
+export interface ReviewState {
+  currentIndex: number;
+  flashcards: GeneratedFlashcardDTO[];
+  previousVersions: Map<string, GeneratedFlashcardDTO>;
+  showPreviousVersion: boolean;
+  acceptedFlashcards: FlashcardDTO[];
+}
+
+// Flashcard view model for UI components
+export interface FlashcardViewModel extends FlashcardDTO {
+  selected: boolean;
+  loading: boolean;
+  error?: string;
+  isEditing: boolean;
+}
+
 // Type guards and validation helpers
 export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
 export type OptionalFields<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>; 

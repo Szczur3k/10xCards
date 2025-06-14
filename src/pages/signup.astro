@@ -1,0 +1,179 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const title = "Zarejestruj się - 10xCards";
+---
+
+<Layout title={title}>
+  <main class="min-h-screen flex items-center justify-center bg-background px-4">
+    <div class="w-full max-w-md">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+          <span class="text-2xl">🎯</span>
+        </div>
+        <h1 class="text-2xl font-bold">Dołącz do 10xCards</h1>
+        <p class="text-muted-foreground mt-2">
+          Utwórz konto aby rozpocząć naukę z fiszkami AI
+        </p>
+      </div>
+
+      <!-- Signup Form -->
+      <div class="bg-card border border-border rounded-lg shadow-sm p-6">
+        <form id="signupForm" class="space-y-4">
+          <!-- Email -->
+          <div class="space-y-2">
+            <label for="email" class="text-sm font-medium">
+              Adres email
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="twoj@email.com"
+            />
+          </div>
+
+          <!-- Password -->
+          <div class="space-y-2">
+            <label for="password" class="text-sm font-medium">
+              Hasło
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              minlength="6"
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Minimum 6 znaków"
+            />
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="space-y-2">
+            <label for="confirmPassword" class="text-sm font-medium">
+              Potwierdź hasło
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              required
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Powtórz hasło"
+            />
+          </div>
+
+          <!-- Terms -->
+          <div class="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="terms"
+              name="terms"
+              required
+              class="mt-1"
+            />
+            <label for="terms" class="text-sm text-muted-foreground">
+              Akceptuję 
+              <a href="#" class="text-primary hover:underline">warunki korzystania</a>
+              i 
+              <a href="#" class="text-primary hover:underline">politykę prywatności</a>
+            </label>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            class="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium py-2 px-4 rounded-md transition-colors"
+          >
+            Utwórz konto
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="relative my-6">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-border"></div>
+          </div>
+          <div class="relative flex justify-center text-xs uppercase">
+            <span class="bg-card px-2 text-muted-foreground">lub</span>
+          </div>
+        </div>
+
+        <!-- Demo Login -->
+        <button
+          id="demoLogin"
+          class="w-full bg-muted hover:bg-muted/80 font-medium py-2 px-4 rounded-md transition-colors"
+        >
+          🚀 Wypróbuj demo (bez rejestracji)
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="text-center mt-6">
+        <p class="text-sm text-muted-foreground">
+          Masz już konto? 
+          <a href="/login" class="text-primary hover:underline font-medium">
+            Zaloguj się
+          </a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Signup form handler
+    document.getElementById('signupForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target as HTMLFormElement);
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
+      const confirmPassword = formData.get('confirmPassword') as string;
+
+      // Validate passwords match
+      if (password !== confirmPassword) {
+        alert('Hasła nie są identyczne');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Store JWT token
+          document.cookie = `auth-token=${data.session.access_token}; path=/; max-age=86400; SameSite=Strict`;
+          
+          // Redirect to flashcards
+          window.location.href = '/flashcards';
+        } else {
+          const error = await response.json();
+          alert(`Błąd rejestracji: ${error.message}`);
+        }
+      } catch (error) {
+        alert('Wystąpił błąd podczas rejestracji. Spróbuj ponownie.');
+        console.error('Signup error:', error);
+      }
+    });
+
+    // Demo login handler
+    document.getElementById('demoLogin')?.addEventListener('click', () => {
+      // Set demo token
+      document.cookie = 'auth-token=mock-jwt-demo-user; path=/; max-age=86400; SameSite=Strict';
+      
+      // Redirect to flashcards
+      window.location.href = '/flashcards';
+    });
+  </script>
+</Layout> 

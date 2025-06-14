@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import FlashcardsListView from '../components/FlashcardsListView';
+
+// Protected route - handled by middleware
+export const prerender = false;
+
+// Access user data from middleware
+const { user, isAuthenticated } = Astro.locals;
+
+// Double-check authentication (middleware should handle this)
+if (!isAuthenticated) {
+  return Astro.redirect('/login');
+}
+---
+
+<Layout title="Flashcards - 10xCards">
+  <FlashcardsListView client:load />
+</Layout> 

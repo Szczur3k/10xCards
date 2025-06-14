@@ -213,7 +213,7 @@ export class AIGenerationService {
   }
 
   /**
-   * Performs the actual AI generation
+   * Performs the actual AI generation with simulated progress tracking
    */
   private async performAIGeneration(params: {
     source_text_id: string;
@@ -231,14 +231,21 @@ export class AIGenerationService {
     // 2. Select AI model
     const selectedModel = params.model || await this.selectBestModel(params.user_id);
 
-    // 3. Generate flashcards using AI (mock implementation for now)
-    const aiFlashcards = await this.callAIModel(sourceText.content, params.max_flashcards, selectedModel);
+    // 3. Generate flashcards using AI with simulated progress
+    // For MVP, we'll use source_text_id as session identifier for progress tracking
+    const aiFlashcards = await this.callAIModelWithProgress(
+      sourceText.content, 
+      params.max_flashcards, 
+      selectedModel,
+      params.source_text_id
+    );
 
     // 4. Save flashcards to database
     const savedFlashcards: GeneratedFlashcardDTO[] = [];
     let totalTokens = 0;
 
-    for (const aiCard of aiFlashcards) {
+    for (let i = 0; i < aiFlashcards.length; i++) {
+      const aiCard = aiFlashcards[i];
       const cardStartTime = Date.now();
       
       const flashcard = await this.flashcardService.createFlashcard({
@@ -265,7 +272,7 @@ export class AIGenerationService {
         generation_time_ms: generationTime
       });
 
-      totalTokens += aiCard.token_count || 50; // Mock token count
+      totalTokens += aiCard.token_count || 50;
     }
 
     const totalTime = Date.now() - startTime;
@@ -285,6 +292,92 @@ export class AIGenerationService {
       flashcards: savedFlashcards,
       stats
     };
+  }
+
+  /**
+   * Enhanced AI model call with simulated progressive generation
+   */
+  private async callAIModelWithProgress(
+    sourceText: string, 
+    maxCards: number, 
+    model: string,
+    sessionId: string
+  ): Promise<Array<{front: string, back: string, confidence_score: number, token_count?: number}>> {
+    // Simulate progressive generation for better UX
+    const cards: Array<{front: string, back: string, confidence_score: number, token_count?: number}> = [];
+    
+    // Card templates for mock generation
+    const cardTemplates = [
+      {
+        front: "Co to jest TypeScript?",
+        back: "TypeScript to statycznie typowany superset JavaScript, który kompiluje się do czystego JavaScript",
+        confidence_score: 0.95,
+        token_count: 45
+      },
+      {
+        front: "Jakie są główne zalety używania React?",
+        back: "React oferuje komponentową architekturę, wirtualny DOM, jednokierunkowy przepływ danych i bogaty ekosystem",
+        confidence_score: 0.88,
+        token_count: 52
+      },
+      {
+        front: "Jak działa Virtual DOM w React?",
+        back: "Virtual DOM to reprezentacja prawdziwego DOM w pamięci. React porównuje zmiany i aktualizuje tylko te elementy, które się zmieniły",
+        confidence_score: 0.92,
+        token_count: 48
+      },
+      {
+        front: "Co to jest hook w React?",
+        back: "Hook to funkcja pozwalająca na używanie stanu i innych funkcji React w komponentach funkcyjnych",
+        confidence_score: 0.85,
+        token_count: 38
+      },
+      {
+        front: "Czym różni się let od var w JavaScript?",
+        back: "let ma zasięg blokowy i nie pozwala na ponowną deklarację, podczas gdy var ma zasięg funkcyjny i pozwala na hoisting",
+        confidence_score: 0.90,
+        token_count: 42
+      },
+      {
+        front: "Co to jest closure w JavaScript?",
+        back: "Closure to funkcja, która ma dostęp do zmiennych z zewnętrznego zakresu nawet po zakończeniu wykonania tej funkcji",
+        confidence_score: 0.87,
+        token_count: 41
+      },
+      {
+        front: "Jak działa async/await w JavaScript?",
+        back: "async/await to syntaktyczny cukier dla Promise, pozwalający na pisanie asynchronicznego kodu w sposób synchroniczny",
+        confidence_score: 0.93,
+        token_count: 46
+      },
+      {
+        front: "Co to jest REST API?",
+        back: "REST API to architektura dla usług webowych używająca HTTP i standardowych metod (GET, POST, PUT, DELETE)",
+        confidence_score: 0.89,
+        token_count: 39
+      }
+    ];
+
+    const shuffled = [...cardTemplates].sort(() => 0.5 - Math.random());
+    const actualCount = Math.min(maxCards, Math.floor(Math.random() * 3) + 4); // 4-6 cards
+
+    // Generate cards progressively with realistic delays
+    for (let i = 0; i < actualCount; i++) {
+      // Simulate AI processing time
+      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
+      
+      const template = shuffled[i % shuffled.length];
+      const variation = i > 0 ? ` (${i + 1})` : '';
+      
+      cards.push({
+        front: template.front + variation,
+        back: template.back,
+        confidence_score: template.confidence_score + (Math.random() * 0.1 - 0.05),
+        token_count: template.token_count + Math.floor(Math.random() * 10 - 5)
+      });
+    }
+
+    return cards;
   }
 
   /**
@@ -309,31 +402,5 @@ export class AIGenerationService {
       message: 'Brak dostępnych modeli AI',
       statusCode: 503
     };
-  }
-
-  /**
-   * Mock AI model call - replace with real implementation
-   */
-  private async callAIModel(
-    sourceText: string, 
-    maxCards: number, 
-    model: string
-  ): Promise<Array<{front: string, back: string, confidence_score: number, token_count?: number}>> {
-    // Mock implementation - replace with real AI API calls
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000)); // Simulate API delay
-
-    const mockCards = [];
-    const actualCount = Math.min(maxCards, Math.floor(Math.random() * 5) + 3); // 3-7 cards
-
-    for (let i = 0; i < actualCount; i++) {
-      mockCards.push({
-        front: `Pytanie ${i + 1} z tekstu: ${sourceText.substring(0, 30)}...`,
-        back: `Odpowiedź ${i + 1} wygenerowana przez ${model}`,
-        confidence_score: 0.7 + Math.random() * 0.3, // 0.7-1.0
-        token_count: Math.floor(Math.random() * 50) + 20 // 20-70 tokens
-      });
-    }
-
-    return mockCards;
   }
 } 

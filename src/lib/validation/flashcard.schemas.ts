@@ -273,8 +273,8 @@ export const validateUUID = (id: string, fieldName: string = 'id') => {
 // Generate flashcards request validation (obsługuje generate i regenerate)
 export const generateFlashcardsSchema = z.object({
   source_text: z.string()
-    .min(10, 'Tekst źródłowy musi mieć co najmniej 10 znaków')
-    .max(50000, 'Tekst źródłowy nie może przekraczać 50,000 znaków')
+    .min(1000, 'Tekst źródłowy musi mieć co najmniej 1,000 znaków')
+    .max(10000, 'Tekst źródłowy nie może przekraczać 10,000 znaków')
     .optional(),
   source_text_id: uuidSchema.optional(),
   max_flashcards: z.number()

@@ -8,7 +8,8 @@ import type {
   FlashcardListResponseDTO,
   PaginationDTO,
   UpdateFlashcardCommand,
-  ReviewFlashcardCommand
+  ReviewFlashcardCommand,
+  FlashcardStatus
 } from '../../types';
 
 /**
@@ -629,5 +630,354 @@ export class FlashcardService {
       created_at: updatedFlashcard.created_at,
       updated_at: updatedFlashcard.updated_at
     };
+  }
+
+  // ============================================================================
+  // BULK OPERATIONS METHODS
+  // ============================================================================
+
+  /**
+   * Bulk delete multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs to delete
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkDeleteFlashcards(
+    flashcardIds: string[], 
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[]
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: selectError } = await this.supabase
+      .from('flashcards')
+      .select('id')
+      .in('id', flashcardIds)
+      .eq('user_id', userId);
+
+    if (selectError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas sprawdzania fiszek',
+        details: { database: [selectError.message] },
+        statusCode: 500
+      };
+    }
+
+    const existingIds = existingFlashcards?.map(f => f.id) || [];
+    const missingIds = flashcardIds.filter(id => !existingIds.includes(id));
+
+    if (missingIds.length > 0) {
+      results.failed_count += missingIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingIds.join(', ')}`);
+    }
+
+    // Delete existing flashcards in a transaction
+    if (existingIds.length > 0) {
+      const { error: deleteError } = await this.supabase
+        .from('flashcards')
+        .delete()
+        .in('id', existingIds)
+        .eq('user_id', userId);
+
+      if (deleteError) {
+        throw {
+          type: 'DATABASE_ERROR',
+          message: 'Błąd podczas usuwania fiszek',
+          details: { database: [deleteError.message] },
+          statusCode: 500
+        };
+      }
+
+      results.processed_count = existingIds.length;
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk change status of multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs to update
+   * @param status - New status to apply
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkChangeStatus(
+    flashcardIds: string[],
+    status: FlashcardStatus,
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[]
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: selectError } = await this.supabase
+      .from('flashcards')
+      .select('id')
+      .in('id', flashcardIds)
+      .eq('user_id', userId);
+
+    if (selectError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas sprawdzania fiszek',
+        details: { database: [selectError.message] },
+        statusCode: 500
+      };
+    }
+
+    const existingIds = existingFlashcards?.map(f => f.id) || [];
+    const missingIds = flashcardIds.filter(id => !existingIds.includes(id));
+
+    if (missingIds.length > 0) {
+      results.failed_count += missingIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingIds.join(', ')}`);
+    }
+
+    // Update existing flashcards status
+    if (existingIds.length > 0) {
+      const { error: updateError } = await this.supabase
+        .from('flashcards')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', existingIds)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        throw {
+          type: 'DATABASE_ERROR',
+          message: 'Błąd podczas zmiany statusu fiszek',
+          details: { database: [updateError.message] },
+          statusCode: 500
+        };
+      }
+
+      results.processed_count = existingIds.length;
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk assign categories to multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs
+   * @param categoryIds - Array of category UUIDs to assign
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkAssignCategories(
+    flashcardIds: string[],
+    categoryIds: string[],
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[]
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: flashcardsError } = await this.supabase
+      .from('flashcards')
+      .select('id')
+      .in('id', flashcardIds)
+      .eq('user_id', userId);
+
+    if (flashcardsError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas sprawdzania fiszek',
+        details: { database: [flashcardsError.message] },
+        statusCode: 500
+      };
+    }
+
+    const existingFlashcardIds = existingFlashcards?.map(f => f.id) || [];
+    const missingFlashcardIds = flashcardIds.filter(id => !existingFlashcardIds.includes(id));
+
+    if (missingFlashcardIds.length > 0) {
+      results.failed_count += missingFlashcardIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingFlashcardIds.join(', ')}`);
+    }
+
+    // Validate that all categories exist
+    const { data: existingCategories, error: categoriesError } = await this.supabase
+      .from('categories')
+      .select('id')
+      .in('id', categoryIds);
+
+    if (categoriesError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas sprawdzania kategorii',
+        details: { database: [categoriesError.message] },
+        statusCode: 500
+      };
+    }
+
+    const existingCategoryIds = existingCategories?.map(c => c.id) || [];
+    const missingCategoryIds = categoryIds.filter(id => !existingCategoryIds.includes(id));
+
+    if (missingCategoryIds.length > 0) {
+      throw {
+        type: 'NOT_FOUND_ERROR',
+        message: 'Niektóre kategorie nie zostały znalezione',
+        details: { category_ids: [`Nie znaleziono kategorii: ${missingCategoryIds.join(', ')}`] },
+        statusCode: 404
+      };
+    }
+
+    // Create flashcard-category relationships for existing flashcards
+    if (existingFlashcardIds.length > 0) {
+      // First, remove existing category relationships for these flashcards
+      await this.supabase
+        .from('flashcard_categories')
+        .delete()
+        .in('flashcard_id', existingFlashcardIds);
+
+      // Create new relationships
+      const relationships = [];
+      for (const flashcardId of existingFlashcardIds) {
+        for (const categoryId of existingCategoryIds) {
+          relationships.push({
+            flashcard_id: flashcardId,
+            category_id: categoryId
+          });
+        }
+      }
+
+      const { error: insertError } = await this.supabase
+        .from('flashcard_categories')
+        .insert(relationships);
+
+      if (insertError) {
+        throw {
+          type: 'DATABASE_ERROR',
+          message: 'Błąd podczas przypisywania kategorii',
+          details: { database: [insertError.message] },
+          statusCode: 500
+        };
+      }
+
+      results.processed_count = existingFlashcardIds.length;
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk assign groups to multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs
+   * @param groupIds - Array of group UUIDs to assign
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkAssignGroups(
+    flashcardIds: string[],
+    groupIds: string[],
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[]
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: flashcardsError } = await this.supabase
+      .from('flashcards')
+      .select('id')
+      .in('id', flashcardIds)
+      .eq('user_id', userId);
+
+    if (flashcardsError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas sprawdzania fiszek',
+        details: { database: [flashcardsError.message] },
+        statusCode: 500
+      };
+    }
+
+    const existingFlashcardIds = existingFlashcards?.map(f => f.id) || [];
+    const missingFlashcardIds = flashcardIds.filter(id => !existingFlashcardIds.includes(id));
+
+    if (missingFlashcardIds.length > 0) {
+      results.failed_count += missingFlashcardIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingFlashcardIds.join(', ')}`);
+    }
+
+    // Validate that all groups exist
+    const { data: existingGroups, error: groupsError } = await this.supabase
+      .from('groups')
+      .select('id')
+      .in('id', groupIds);
+
+    if (groupsError) {
+      throw {
+        type: 'DATABASE_ERROR',
+        message: 'Błąd podczas sprawdzania grup',
+        details: { database: [groupsError.message] },
+        statusCode: 500
+      };
+    }
+
+    const existingGroupIds = existingGroups?.map(g => g.id) || [];
+    const missingGroupIds = groupIds.filter(id => !existingGroupIds.includes(id));
+
+    if (missingGroupIds.length > 0) {
+      throw {
+        type: 'NOT_FOUND_ERROR',
+        message: 'Niektóre grupy nie zostały znalezione',
+        details: { group_ids: [`Nie znaleziono grup: ${missingGroupIds.join(', ')}`] },
+        statusCode: 404
+      };
+    }
+
+    // Create flashcard-group relationships for existing flashcards
+    if (existingFlashcardIds.length > 0) {
+      // First, remove existing group relationships for these flashcards
+      await this.supabase
+        .from('flashcard_groups')
+        .delete()
+        .in('flashcard_id', existingFlashcardIds);
+
+      // Create new relationships
+      const relationships = [];
+      for (const flashcardId of existingFlashcardIds) {
+        for (const groupId of existingGroupIds) {
+          relationships.push({
+            flashcard_id: flashcardId,
+            group_id: groupId
+          });
+        }
+      }
+
+      const { error: insertError } = await this.supabase
+        .from('flashcard_groups')
+        .insert(relationships);
+
+      if (insertError) {
+        throw {
+          type: 'DATABASE_ERROR',
+          message: 'Błąd podczas przypisywania grup',
+          details: { database: [insertError.message] },
+          statusCode: 500
+        };
+      }
+
+      results.processed_count = existingFlashcardIds.length;
+    }
+
+    return results;
   }
 } 

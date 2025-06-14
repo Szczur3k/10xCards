@@ -1,8 +1,12 @@
 ---
-import Welcome from "../components/Welcome.astro";
-import Layout from "../layouts/Layout.astro";
----
+// Check authentication status
+const token = Astro.cookies.get('auth-token')?.value;
+const isAuthenticated = token && (token.startsWith('mock-jwt-') || token.length > 10);
 
-<Layout>
-  <Welcome />
-</Layout>
+// Redirect based on authentication status
+if (isAuthenticated) {
+  return Astro.redirect('/flashcards');
+} else {
+  return Astro.redirect('/login');
+}
+---
