@@ -375,6 +375,20 @@ ${sourceText}`;
 
     } catch (error) {
       console.error('AI generation error:', error);
+      
+      // If it's already a structured error (from OpenRouter), re-throw it
+      if (error && typeof error === 'object' && 'code' in error && 'message' in error) {
+        // Convert OpenRouter error to our API format
+        const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
+        throw {
+          type: error.code || 'AI_GENERATION_ERROR',
+          message: error.message,
+          details: { ai: [error.message] },
+          statusCode
+        };
+      }
+      
+      // Otherwise, wrap in generic AI error
       throw {
         type: 'AI_GENERATION_ERROR',
         message: 'Błąd podczas generowania fiszek przez AI',
@@ -524,6 +538,20 @@ Back: ${params.rejected_flashcard.back}`;
 
     } catch (error) {
       console.error('Single flashcard regeneration error:', error);
+      
+      // If it's already a structured error (from OpenRouter), re-throw it
+      if (error && typeof error === 'object' && 'code' in error && 'message' in error) {
+        // Convert OpenRouter error to our API format
+        const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
+        throw {
+          type: error.code || 'AI_GENERATION_ERROR',
+          message: error.message,
+          details: { ai: [error.message] },
+          statusCode
+        };
+      }
+      
+      // Otherwise, wrap in generic AI error
       throw {
         type: 'AI_GENERATION_ERROR',
         message: 'Błąd podczas regeneracji fiszki przez AI',

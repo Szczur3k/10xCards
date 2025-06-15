@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useModal } from './ModalSystem';
 import { useToast } from '../providers/ToastProvider';
+import { ErrorHandlerService } from '../../lib/services/error-handler.service';
 import type { GeneratedFlashcardDTO } from '../../types';
 
 interface ReviewCarouselProps {
@@ -138,7 +139,8 @@ export function ReviewCarousel({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to regenerate flashcard');
+        const errorMessage = await ErrorHandlerService.parseApiError(response);
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -175,10 +177,11 @@ export function ReviewCarousel({
       restoredFlashcards[currentIndex] = currentCard;
       setLocalFlashcards(restoredFlashcards);
       
+      const errorMessage = ErrorHandlerService.handleError(error);
       addToast({
         type: 'error',
         title: 'Błąd regeneracji',
-        description: 'Nie udało się zregenerować fiszki. Spróbuj ponownie.'
+        description: errorMessage
       });
     } finally {
       setIsSaving(false);
@@ -229,7 +232,8 @@ export function ReviewCarousel({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save flashcards');
+        const errorMessage = await ErrorHandlerService.parseApiError(response);
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -246,10 +250,11 @@ export function ReviewCarousel({
       
     } catch (error) {
       console.error('Error saving flashcards:', error);
+      const errorMessage = ErrorHandlerService.handleError(error);
       addToast({
         type: 'error',
         title: 'Błąd zapisywania',
-        description: 'Nie udało się zapisać fiszek. Spróbuj ponownie.'
+        description: errorMessage
       });
     } finally {
       setIsSaving(false);

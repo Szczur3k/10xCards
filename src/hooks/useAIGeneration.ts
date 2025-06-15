@@ -8,6 +8,7 @@ import type {
   GenerateFlashcardsResponseDTO
 } from '../types';
 import React from 'react';
+import { ErrorHandlerService } from '../lib/services/error-handler.service';
 
 // Simple API functions
 const api = {
@@ -20,7 +21,8 @@ const api = {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to generate flashcards: ${response.statusText}`);
+      const errorMessage = await ErrorHandlerService.parseApiError(response);
+      throw new Error(errorMessage);
     }
     
     return response.json();
@@ -30,7 +32,8 @@ const api = {
     const response = await fetch('/api/flashcards/models');
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch models: ${response.statusText}`);
+      const errorMessage = await ErrorHandlerService.parseApiError(response);
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();
@@ -76,10 +79,11 @@ export function useAIGeneration() {
       setDefaultModel(defaultModel);
     } catch (error) {
       console.error('Error loading models:', error);
+      const errorMessage = ErrorHandlerService.handleError(error);
       addToast({
         type: 'error',
         title: 'Błąd ładowania modeli',
-        description: 'Nie udało się załadować dostępnych modeli AI',
+        description: errorMessage,
       });
     } finally {
       setIsLoadingModels(false);
@@ -144,17 +148,19 @@ export function useAIGeneration() {
     },
     onError: (error) => {
       console.error('Generation failed:', error);
+      const errorMessage = ErrorHandlerService.handleError(error);
+      
       setGenerationState({
         isGenerating: false,
         status: 'error',
         generatedCards: [],
-        error: error instanceof Error ? error.message : 'Wystąpił nieoczekiwany błąd'
+        error: errorMessage
       });
 
       addToast({
         type: 'error',
         title: 'Błąd generowania',
-        description: error instanceof Error ? error.message : 'Wystąpił nieoczekiwany błąd',
+        description: errorMessage,
       });
     }
   });
