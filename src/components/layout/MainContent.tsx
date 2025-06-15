@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './Header';
 import { FlashcardGrid } from '../flashcards/FlashcardGrid';
 import { BulkOperationsBar } from '../flashcards/BulkOperationsBar';
@@ -15,8 +15,20 @@ import type { FlashcardViewModel, GenerateFlashcardsRequestDTO, FlashcardDTO } f
  */
 export function MainContent() {
   const { updateSearch, toQueryParams, filters } = useFilterContext();
-  const { flashcards: rawFlashcards, isLoading, deleteFlashcard } = useFlashcards(toQueryParams());
+  const { flashcards: rawFlashcards, isLoading, deleteFlashcard, refetch } = useFlashcards(toQueryParams());
   const { openModal } = useModal();
+
+  // Listen for flashcards updates from modal system
+  useEffect(() => {
+    const handleFlashcardsUpdated = () => {
+      refetch();
+    };
+
+    window.addEventListener('flashcards-updated', handleFlashcardsUpdated);
+    return () => {
+      window.removeEventListener('flashcards-updated', handleFlashcardsUpdated);
+    };
+  }, [refetch]);
   
   // Apply client-side search filtering until API supports it
   const flashcards: FlashcardDTO[] = React.useMemo(() => {

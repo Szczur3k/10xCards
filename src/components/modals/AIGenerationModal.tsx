@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { MultiSelect } from '../ui/multi-select';
@@ -43,6 +43,7 @@ export function AIGenerationModal({
   const [maxCards, setMaxCards] = useState(10);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [reviewOpened, setReviewOpened] = useState(false);
 
   const { updateSharedData } = useModal();
 
@@ -59,6 +60,22 @@ export function AIGenerationModal({
     cancelGeneration,
     clearResults
   } = useAIGeneration();
+
+  const resetForm = useCallback(() => {
+    setSourceText('');
+    setSelectedModel(defaultModel?.id || '');
+    setMaxCards(10);
+    setSelectedCategories([]);
+    setSelectedGroups([]);
+    setReviewOpened(false);
+  }, [defaultModel]);
+
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, resetForm]);
 
   const {
     categoryOptions,
@@ -81,20 +98,20 @@ export function AIGenerationModal({
 
   // Handle generation completion - save to shared data and call onOpenReview
   useEffect(() => {
-    if (generationStatus === 'completed' && hasResults && onOpenReview) {
-      console.log('Generation completed, calling onOpenReview');
+    if (generationStatus === 'completed' && hasResults && onOpenReview && !reviewOpened) {
       // Save generated cards to shared modal data
       if (generatedCards && generatedCards.length > 0) {
         updateSharedData({
           generatedFlashcards: generatedCards,
+          sourceText: sourceText.trim(),
           selectedCategories,
           selectedGroups
         });
-        console.log('Generated cards saved to shared data:', generatedCards.length);
       }
+      setReviewOpened(true);
       onOpenReview();
     }
-  }, [generationStatus, hasResults, onOpenReview, generatedCards, updateSharedData, selectedCategories, selectedGroups]);
+  }, [generationStatus, hasResults, onOpenReview, generatedCards, updateSharedData, selectedCategories, selectedGroups, reviewOpened]);
 
   if (!isOpen) return null;
 
@@ -118,6 +135,7 @@ export function AIGenerationModal({
       group_ids: selectedGroups.length > 0 ? selectedGroups : undefined,
     };
 
+    setReviewOpened(false);
     startGeneration(request);
     onGenerate(request);
   };
@@ -127,6 +145,7 @@ export function AIGenerationModal({
       cancelGeneration();
     }
     clearResults();
+    resetForm();
     onClose();
   };
 

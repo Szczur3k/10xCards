@@ -20,6 +20,7 @@ interface ModalState {
 interface SharedModalData {
   generatedFlashcards?: GeneratedFlashcardDTO[];
   sourceTextId?: string;
+  sourceText?: string;
   selectedCategories?: string[];
   selectedGroups?: string[];
 }
@@ -108,6 +109,9 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
 export function ModalRenderer() {
   const { modalState, sharedData, closeModal, openModal, updateModalData, updateSharedData } = useModal();
 
+  // Get flashcards for review modal
+  const reviewFlashcards = sharedData.generatedFlashcards || modalState.data?.flashcards || [];
+
   const handleAIGenerate = useCallback((request: GenerateFlashcardsRequestDTO) => {
     // Store generation request data in shared data
     updateSharedData({
@@ -115,19 +119,23 @@ export function ModalRenderer() {
       selectedCategories: request.category_ids,
       selectedGroups: request.group_ids
     });
-    console.log('AI Generation request:', request);
   }, [updateSharedData]);
 
   const handleOpenReview = useCallback(() => {
+    // Don't open review modal if it's already open
+    if (modalState.type === 'review-carousel' && modalState.isOpen) {
+      return;
+    }
+    
     // Get generated cards from shared data
     const flashcards = sharedData.generatedFlashcards || [];
-    console.log('Opening review modal with flashcards:', flashcards);
     openModal('review-carousel', { flashcards });
-  }, [openModal, sharedData.generatedFlashcards]);
+  }, [openModal, sharedData.generatedFlashcards, modalState.type, modalState.isOpen]);
 
   const handleReviewComplete = useCallback(() => {
     closeModal();
-    // Optionally refresh flashcards list or show success message
+    // Trigger dashboard refresh by dispatching custom event
+    window.dispatchEvent(new CustomEvent('flashcards-updated'));
   }, [closeModal]);
 
   const handleEditSave = useCallback((flashcard: FlashcardDTO) => {
@@ -148,7 +156,7 @@ export function ModalRenderer() {
       {/* Review Carousel Modal */}
       <ReviewCarousel
         isOpen={modalState.isOpen && modalState.type === 'review-carousel'}
-        flashcards={modalState.data?.flashcards || sharedData.generatedFlashcards || []}
+        flashcards={reviewFlashcards}
         onClose={closeModal}
         onComplete={handleReviewComplete}
       />

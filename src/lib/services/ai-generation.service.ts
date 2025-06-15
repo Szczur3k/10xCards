@@ -326,23 +326,19 @@ export class AIGenerationService {
     const startTime = Date.now();
 
     // Create system prompt for flashcard generation
-    const systemPrompt = `Jesteś ekspertem w tworzeniu fiszek edukacyjnych. Na podstawie podanego tekstu stwórz precyzyjne fiszki, które pomogą w nauce i zapamiętywaniu kluczowych informacji.
+    const systemPrompt = `Tworzysz fiszki edukacyjne w formacie JSON. Odpowiadaj TYLKO JSON-em, bez żadnych dodatkowych komentarzy.
 
-WYMAGANIA:
-- Front: maksymalnie 200 znaków - jasne, konkretne pytanie lub pojęcie
-- Back: maksymalnie 500 znaków - zwięzła, precyzyjna odpowiedź
-- Fiszki mają być różnorodne i pokrywać najważniejsze aspekty tekstu
-- Unikaj powtórzeń, każda fiszka ma być unikalna
-- Używaj prostego, zrozumiałego języka
-
-ZWRÓĆ ODPOWIEDŹ WYŁĄCZNIE W FORMACIE JSON:
+Format odpowiedzi:
 {
-  "card1": { "front": "pytanie/pojęcie", "back": "odpowiedź/wyjaśnienie" },
-  "card2": { "front": "pytanie/pojęcie", "back": "odpowiedź/wyjaśnienie" },
-  ...
+  "card1": { "front": "pytanie", "back": "odpowiedź" },
+  "card2": { "front": "pytanie", "back": "odpowiedź" }
 }
 
-NIE DODAWAJ ŻADNEGO INNEGO TEKSTU, TYLKO CZYSTY JSON.`;
+Zasady:
+- Front: maksymalnie 200 znaków
+- Back: maksymalnie 500 znaków
+- Używaj prostego języka
+- Każda fiszka unikalna`;
 
     const userPrompt = `Stwórz maksymalnie ${maxCards} fiszek na podstawie tego tekstu:
 
@@ -393,13 +389,39 @@ ${sourceText}`;
    */
   private parseFlashcardsFromAI(aiResponse: string): Record<string, {front: string, back: string}> {
     try {
-      // Clean up response - remove any extra text before/after JSON
+      console.log('AI Response to parse:', aiResponse.substring(0, 1000));
+      
+      // Try multiple JSON extraction strategies
+      let jsonString = '';
+      
+      // Strategy 1: Find JSON object with curly braces
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
+      if (jsonMatch) {
+        jsonString = jsonMatch[0];
+      } else {
+        // Strategy 2: Look for JSON-like patterns with quotes
+        const quotedMatch = aiResponse.match(/"card\d+"[\s\S]*?"back"[\s\S]*?"/);
+        if (quotedMatch) {
+          // Try to reconstruct JSON from fragments
+          const cardMatches = aiResponse.match(/"card\d+"\s*:\s*\{[^}]*\}/g);
+          if (cardMatches) {
+            jsonString = '{' + cardMatches.join(',') + '}';
+          }
+        }
+      }
+      
+      if (!jsonString) {
         throw new Error('Nie znaleziono poprawnego formatu JSON w odpowiedzi AI');
       }
 
-      const jsonString = jsonMatch[0];
+      // Clean up common JSON issues
+      jsonString = jsonString
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+        .replace(/,\s*}/g, '}') // Remove trailing commas
+        .replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
+
+      console.log('Extracted JSON string:', jsonString);
+      
       const parsed = JSON.parse(jsonString);
 
       // Use schema validation instead of manual validation
@@ -411,7 +433,7 @@ ${sourceText}`;
       return validation.data!;
 
     } catch (error) {
-      console.error('Error parsing AI response:', error, 'Response:', aiResponse.substring(0, 500) + '...');
+      console.error('Error parsing AI response:', error, 'Full Response:', aiResponse);
       
       // If it's already a validation error, re-throw
       if (error && typeof error === 'object' && 'type' in error) {
@@ -429,10 +451,93 @@ ${sourceText}`;
   }
 
   /**
+   * Regenerates a single flashcard from source text (without database operations)
+   */
+  async regenerateSingleFlashcard(params: {
+    source_text: string;
+    rejected_flashcard: { front: string; back: string };
+    user_id: string;
+    model?: string;
+  }): Promise<Omit<GeneratedFlashcardDTO, 'id'>> {
+    const startTime = Date.now();
+
+    // Select AI model
+    const selectedModel = params.model || await this.selectBestModel(params.user_id);
+
+    // Create enhanced prompt that mentions the rejected flashcard
+    const systemPrompt = `Tworzysz JEDNĄ nową fiszkę w formacie JSON. Odpowiadaj TYLKO JSON-em.
+
+Format odpowiedzi:
+{
+  "card1": { "front": "pytanie", "back": "odpowiedź" }
+}
+
+Zasady:
+- Front: maksymalnie 200 znaków
+- Back: maksymalnie 500 znaków
+- Fiszka różna od odrzuconej`;
+
+    const userPrompt = `Stwórz JEDNĄ nową fiszkę na podstawie tego tekstu:
+
+${params.source_text}
+
+ODRZUCONA FISZKA (stwórz coś innego):
+Front: ${params.rejected_flashcard.front}
+Back: ${params.rejected_flashcard.back}`;
+
+    try {
+      // Call OpenRouter API
+      const response = await this.openRouterService.chat([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ], {
+        temperature: 0.8, // Higher temperature for more variety
+        max_tokens: 6000, 
+        top_p: 0.9
+      }, selectedModel);
+
+      const aiResponse = response.choices[0]?.message?.content || '';
+      const endTime = Date.now();
+      const generationTime = endTime - startTime;
+
+      // Parse and validate JSON response
+      const flashcardsData = this.parseFlashcardsFromAI(aiResponse);
+      const cardEntries = Object.entries(flashcardsData);
+      
+      if (cardEntries.length === 0) {
+        throw new Error('AI nie wygenerowało żadnej fiszki');
+      }
+
+      const [, card] = cardEntries[0]; // Get first (and should be only) card
+      
+      // Return card without ID - it will be set by the caller to preserve status
+      const regeneratedCard: Omit<GeneratedFlashcardDTO, 'id'> = {
+        front: card.front,
+        back: card.back,
+        creation_type: 'llm',
+        status: 'pending_review',
+        confidence_score: 0.85 + (Math.random() * 0.15), // 0.85-1.0 range
+        generation_time_ms: generationTime
+      };
+
+      return regeneratedCard;
+
+    } catch (error) {
+      console.error('Single flashcard regeneration error:', error);
+      throw {
+        type: 'AI_GENERATION_ERROR',
+        message: 'Błąd podczas regeneracji fiszki przez AI',
+        details: { ai: [error instanceof Error ? error.message : 'Nieznany błąd AI'] },
+        statusCode: 500
+      };
+    }
+  }
+
+  /**
    * Selects the best available AI model
    */
   private async selectBestModel(userId: string): Promise<string> {
-    const modelsResponse = await this.aiModelService.getAvailableModels({ user_id: userId });
+    const modelsResponse = await this.aiModelService.getAvailableModels({ user_id: userId }, this.supabase);
     
     // Find the default model or first available
     const defaultModel = modelsResponse.models.find(m => m.is_default && m.is_available);

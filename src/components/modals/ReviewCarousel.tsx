@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { 
   X, 
@@ -37,15 +37,23 @@ export function ReviewCarousel({
   const [acceptedCards, setAcceptedCards] = useState<Set<string>>(new Set());
   const [rejectedCards, setRejectedCards] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [localFlashcards, setLocalFlashcards] = useState<GeneratedFlashcardDTO[]>(flashcards);
 
-  const { sharedData, clearSharedData } = useModal();
+  const { sharedData, clearSharedData, updateSharedData } = useModal();
   const { addToast } = useToast();
 
+  // Synchronize local flashcards with prop changes
+  useEffect(() => {
+    setLocalFlashcards(flashcards);
+  }, [flashcards]);
+
   // Safe access to current card and counts
-  const totalCards = flashcards.length;
-  const currentCard = flashcards[currentIndex] || flashcards[0];
+  const totalCards = localFlashcards.length;
+  const currentCard = localFlashcards[currentIndex] || localFlashcards[0];
   const acceptedCount = acceptedCards.size;
   const rejectedCount = rejectedCards.size;
+
+
 
   const handleNext = useCallback(() => {
     if (currentIndex < totalCards - 1) {
@@ -97,17 +105,97 @@ export function ReviewCarousel({
     }
   }, [currentCard?.id, currentIndex, totalCards, handleNext]);
 
+  const handleRegenerate = useCallback(async () => {
+    if (!currentCard) return;
+    
+    setIsSaving(true);
+    
+    // KROK 1: Stwórz tymczasową fiszkę z tekstem ładowania
+    const tempCard = {
+      ...currentCard,
+      front: '🔄 Regeneruję pytanie...',
+      back: '🔄 Regeneruję odpowiedź...'
+    };
+    
+    // KROK 2: Nadpisz aktualną fiszkę tymczasową
+    const tempFlashcards = [...localFlashcards];
+    tempFlashcards[currentIndex] = tempCard;
+    setLocalFlashcards(tempFlashcards);
+    
+    try {
+      const response = await fetch('/api/flashcards/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_text: sharedData.sourceText || 'Tekst źródłowy',
+          rejected_flashcard: {
+            front: currentCard.front,
+            back: currentCard.back
+          },
+          category_ids: sharedData.selectedCategories,
+          group_ids: sharedData.selectedGroups
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate flashcard');
+      }
+
+      const result = await response.json();
+      
+      // KROK 3: Nadpisz tymczasową fiszkę prawdziwymi danymi
+      const finalFlashcards = [...tempFlashcards];
+      const finalCard = {
+        ...result.flashcard,
+        id: currentCard.id // Preserve original ID to maintain status
+      };
+      finalFlashcards[currentIndex] = finalCard;
+      
+      // Update local state
+      setLocalFlashcards(finalFlashcards);
+      
+      // Reset card status to pending (remove from rejected)
+      setRejectedCards(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(currentCard.id);
+        return newSet;
+      });
+      
+      addToast({
+        type: 'success',
+        title: 'Fiszka zregenerowana!',
+        description: 'Wygenerowano nową wersję fiszki.'
+      });
+      
+    } catch (error) {
+      console.error('Error regenerating flashcard:', error);
+      
+      // W przypadku błędu, przywróć oryginalną fiszkę
+      const restoredFlashcards = [...localFlashcards];
+      restoredFlashcards[currentIndex] = currentCard;
+      setLocalFlashcards(restoredFlashcards);
+      
+      addToast({
+        type: 'error',
+        title: 'Błąd regeneracji',
+        description: 'Nie udało się zregenerować fiszki. Spróbuj ponownie.'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [currentCard, currentIndex, localFlashcards, sharedData, addToast]);
+
   const handleAcceptAll = useCallback(() => {
-    const allIds = flashcards.map(card => card.id);
+    const allIds = localFlashcards.map(card => card.id);
     setAcceptedCards(new Set(allIds));
     setRejectedCards(new Set());
-  }, [flashcards]);
+  }, [localFlashcards]);
 
   const handleRejectAll = useCallback(() => {
-    const allIds = flashcards.map(card => card.id);
+    const allIds = localFlashcards.map(card => card.id);
     setRejectedCards(new Set(allIds));
     setAcceptedCards(new Set());
-  }, [flashcards]);
+  }, [localFlashcards]);
 
   const handleSave = useCallback(async () => {
     if (acceptedCards.size === 0) {
@@ -121,7 +209,7 @@ export function ReviewCarousel({
 
     setIsSaving(true);
     try {
-      const acceptedFlashcards = flashcards.filter(card => acceptedCards.has(card.id));
+      const acceptedFlashcards = localFlashcards.filter(card => acceptedCards.has(card.id));
       
       // Prepare request data for accept API
       const requestData = {
@@ -166,7 +254,7 @@ export function ReviewCarousel({
     } finally {
       setIsSaving(false);
     }
-  }, [acceptedCards, flashcards, sharedData, addToast, clearSharedData, onComplete]);
+  }, [acceptedCards, localFlashcards, sharedData, addToast, clearSharedData, onComplete]);
 
   const getCardStatus = (cardId: string) => {
     if (acceptedCards.has(cardId)) return 'accepted';
@@ -175,7 +263,7 @@ export function ReviewCarousel({
   };
 
   // Conditional rendering after all hooks
-  if (!isOpen || flashcards.length === 0) return null;
+  if (!isOpen || localFlashcards.length === 0) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -268,6 +356,17 @@ export function ReviewCarousel({
                   <Trash2 className="w-4 h-4" />
                   Odrzuć
                 </Button>
+                {getCardStatus(currentCard.id) === 'rejected' && (
+                  <Button
+                    variant="outline"
+                    onClick={handleRegenerate}
+                    disabled={isSaving}
+                    className="gap-2 text-blue-600 hover:text-blue-700"
+                  >
+                    <RotateCcw className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
+                    {isSaving ? 'Regeneruję...' : 'Regeneruj'}
+                  </Button>
+                )}
                 <Button
                   onClick={handleAccept}
                   className="gap-2 bg-green-600 hover:bg-green-700"
@@ -314,7 +413,10 @@ export function ReviewCarousel({
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={onClose}
+              onClick={() => {
+                console.log('Anuluj clicked, calling onClose');
+                onClose();
+              }}
             >
               Anuluj
             </Button>
