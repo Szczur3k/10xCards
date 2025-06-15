@@ -5,7 +5,8 @@ import type {
   ModelStatsDTO,
   GetAvailableModelsCommand 
 } from '../../types';
-import { supabaseClient } from '../../db/supabase.client';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../db/database.types';
 
 /**
  * Default model selection strategy configuration
@@ -37,17 +38,30 @@ export class AIModelService {
   private cacheExpiry = new Map<string, number>();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
+  constructor(private supabase?: SupabaseClient<Database>) {}
+
   /**
    * Gets all available models with their availability status
    * @param command - GetAvailableModelsCommand with user context
    * @returns Promise<ModelsResponseDTO> - Complete models response with strategy and stats
    */
-  async getAvailableModels(command: GetAvailableModelsCommand): Promise<ModelsResponseDTO> {
+  async getAvailableModels(command: GetAvailableModelsCommand, supabaseClient?: SupabaseClient<Database>): Promise<ModelsResponseDTO> {
     try {
+      const client = supabaseClient || this.supabase;
+      if (!client) {
+        throw {
+          type: 'CONFIGURATION_ERROR',
+          message: 'Supabase client nie jest dostępny',
+          statusCode: 500
+        };
+      }
+
       // Get models from database
-      const { data: dbModels, error: dbError } = await supabaseClient
+      const { data: dbModels, error: dbError } = await client
         .from('ai_models')
-        .select('*');
+        .select('*')
+        .eq('is_active', true)
+        .order('quality_score', { ascending: false });
 
       if (dbError) {
         console.error('Database error fetching AI models:', dbError);
@@ -74,6 +88,7 @@ export class AIModelService {
       // Transform database models to DTOs with availability
       const models: AIModelDTO[] = dbModels.map((dbModel: any) => {
         const availability = modelAvailabilities.find(a => a.model_id === dbModel.id);
+        const isDefault = dbModel.recommended_for?.includes('default') || false;
         
         return {
           id: dbModel.id,
@@ -83,15 +98,15 @@ export class AIModelService {
           max_tokens: dbModel.max_tokens,
           average_response_time_ms: dbModel.average_response_time_ms,
           quality_score: dbModel.quality_score,
-          recommended_for: dbModel.recommended_for,
-          is_default: false, // Will be calculated based on strategy
+          recommended_for: dbModel.recommended_for || [],
+          is_default: isDefault,
           is_available: availability?.is_available || false,
           requires_api_key: dbModel.requires_api_key,
           unavailable_reason: availability?.unavailable_reason
         };
       });
 
-      // Apply selection strategy to determine default model
+      // Apply selection strategy to determine default model if none marked
       const modelsWithDefault = this.applySelectionStrategy(models);
       
       // Calculate statistics
@@ -101,8 +116,8 @@ export class AIModelService {
       if (stats.available_models === 0) {
         throw {
           type: 'SERVICE_UNAVAILABLE_ERROR',
-          message: 'Brak dostępnych modeli AI',
-          details: { models: ['Wszystkie modele wymagają konfiguracji kluczy API'] },
+          message: 'Brak dostępnych modeli AI - wymagany klucz API OpenRouter',
+          details: { models: ['Skonfiguruj OPENROUTER_API_KEY w zmiennych środowiskowych'] },
           statusCode: 503
         };
       }
@@ -139,6 +154,25 @@ export class AIModelService {
   }
 
   /**
+   * Gets the best available model for flashcard generation
+   */
+  async getBestModel(userId: string, supabaseClient?: SupabaseClient<Database>): Promise<AIModelDTO> {
+    const modelsResponse = await this.getAvailableModels({ user_id: userId }, supabaseClient);
+    const availableModels = modelsResponse.models.filter(m => m.is_available);
+    
+    if (availableModels.length === 0) {
+      throw {
+        type: 'SERVICE_UNAVAILABLE_ERROR',
+        message: 'Brak dostępnych modeli AI',
+        statusCode: 503
+      };
+    }
+
+    // Return default model or first available
+    return availableModels.find(m => m.is_default) || availableModels[0];
+  }
+
+  /**
    * Checks availability of all models by verifying API keys
    * @param models - Array of models to check availability for
    * @returns Promise<ModelAvailabilityDTO[]> - Availability status for all models
@@ -160,67 +194,54 @@ export class AIModelService {
    * @returns Promise<ModelAvailabilityDTO> - Availability status
    */
   private async checkModelAvailability(model: any): Promise<ModelAvailabilityDTO> {
-    // Free models are always available
-    if (!model.requires_api_key) {
+    // All models require OpenRouter API key
+    if (model.requires_api_key) {
+      const apiKeyConfigured = this.isOpenRouterAPIKeyConfigured();
+      
+      if (!apiKeyConfigured) {
+        return {
+          model_id: model.id,
+          is_available: false,
+          unavailable_reason: "Wymagany klucz API OpenRouter",
+          api_key_configured: false
+        };
+      }
+
       return {
         model_id: model.id,
         is_available: true,
-        api_key_configured: false
+        api_key_configured: true
       };
     }
 
-    // Get env key based on provider
-    const envKey = API_KEY_ENV_MAP[model.provider as keyof typeof API_KEY_ENV_MAP];
-    if (!envKey) {
-      return {
-        model_id: model.id,
-        is_available: false,
-        unavailable_reason: "Unknown provider",
-        api_key_configured: false
-      };
-    }
-
-    // Check if API key is configured for paid models
-    const apiKeyConfigured = this.isAPIKeyConfigured(envKey);
-    
-    if (!apiKeyConfigured) {
-      return {
-        model_id: model.id,
-        is_available: false,
-        unavailable_reason: "API key not configured",
-        api_key_configured: false
-      };
-    }
-
+    // Fallback for models that don't require API key (shouldn't happen with OpenRouter)
     return {
       model_id: model.id,
-      is_available: true,
-      api_key_configured: true
+      is_available: false,
+      unavailable_reason: "Model nie jest skonfigurowany",
+      api_key_configured: false
     };
   }
 
   /**
-   * Checks if an API key is configured in environment variables
-   * Uses caching to avoid repeated environment checks
-   * @param envKey - Environment variable name to check
-   * @returns boolean - Whether the API key is configured
+   * Checks if OpenRouter API key is configured
    */
-  private isAPIKeyConfigured(envKey: string): boolean {
-    // Check cache first
-    const cached = this.apiKeyCache.get(envKey);
-    const cacheExpiry = this.cacheExpiry.get(envKey);
+  private isOpenRouterAPIKeyConfigured(): boolean {
+    const cacheKey = 'openrouter_api_key';
+    const now = Date.now();
     
-    if (cached !== undefined && cacheExpiry && Date.now() < cacheExpiry) {
-      return cached;
+    // Check cache first
+    if (this.apiKeyCache.has(cacheKey) && this.cacheExpiry.get(cacheKey)! > now) {
+      return this.apiKeyCache.get(cacheKey)!;
     }
 
-    // Check environment variable
-    const value = import.meta.env[envKey] || process.env[envKey];
-    const isConfigured = !!(value && value.trim().length > 0);
+    // Check environment variable (both import.meta.env and process.env for compatibility)
+    const apiKey = import.meta.env?.OPENROUTER_API_KEY || process.env?.OPENROUTER_API_KEY;
+    const isConfigured = !!(apiKey && apiKey.trim().length > 0);
     
-    // Cache the result
-    this.apiKeyCache.set(envKey, isConfigured);
-    this.cacheExpiry.set(envKey, Date.now() + this.CACHE_TTL_MS);
+    // Cache result
+    this.apiKeyCache.set(cacheKey, isConfigured);
+    this.cacheExpiry.set(cacheKey, now + this.CACHE_TTL_MS);
     
     return isConfigured;
   }
@@ -231,6 +252,12 @@ export class AIModelService {
    * @returns AIModelDTO[] - Models with default selection applied
    */
   private applySelectionStrategy(models: AIModelDTO[]): AIModelDTO[] {
+    // If a model is already marked as default, keep it
+    const hasDefault = models.some(model => model.is_default);
+    if (hasDefault) {
+      return models;
+    }
+
     // Filter to only available models for default selection
     const availableModels = models.filter(model => model.is_available);
     
@@ -286,16 +313,16 @@ export class AIModelService {
   }
 
   /**
-   * Calculates statistics about available models
+   * Calculates statistics for the models collection
    * @param models - Array of AIModelDTO to analyze
-   * @returns ModelStatsDTO - Calculated statistics
+   * @returns ModelStatsDTO - Statistical summary
    */
   private calculateModelStats(models: AIModelDTO[]): ModelStatsDTO {
     const totalModels = models.length;
     const availableModels = models.filter(model => model.is_available).length;
-    const freeModels = models.filter(model => !model.requires_api_key && model.is_available).length;
-    const paidModels = models.filter(model => model.requires_api_key && model.is_available).length;
-
+    const freeModels = models.filter(model => model.cost_per_1k_tokens === 0 && model.is_available).length;
+    const paidModels = models.filter(model => model.cost_per_1k_tokens > 0 && model.is_available).length;
+    
     return {
       total_models: totalModels,
       available_models: availableModels,
@@ -305,7 +332,7 @@ export class AIModelService {
   }
 
   /**
-   * Clears the API key cache (useful for testing or configuration changes)
+   * Clears the API key cache
    */
   public clearCache(): void {
     this.apiKeyCache.clear();

@@ -10,6 +10,8 @@ import type {
 } from '../../types';
 import { FlashcardService } from './flashcard.service';
 import { AIModelService } from './ai-model.service';
+import { OpenRouterService } from './openrouter/client';
+import { validateAIFlashcardsResponse } from '../validation/flashcard.schemas';
 
 /**
  * Service for AI-powered flashcard generation
@@ -18,10 +20,24 @@ import { AIModelService } from './ai-model.service';
 export class AIGenerationService {
   private flashcardService: FlashcardService;
   private aiModelService: AIModelService;
+  private openRouterService: OpenRouterService;
 
   constructor(private supabase: SupabaseClient<Database>) {
     this.flashcardService = new FlashcardService(supabase);
     this.aiModelService = new AIModelService();
+    
+    // Initialize OpenRouter service
+    const apiKey = import.meta.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENROUTER_API_KEY nie jest skonfigurowany');
+    }
+    
+    this.openRouterService = new OpenRouterService({
+      apiKey,
+      enableLogging: import.meta.env.DEV,
+      timeout: 60000, // 1 minute timeout for flashcard generation
+      retryAttempts: 2
+    });
   }
 
   /**
@@ -213,7 +229,7 @@ export class AIGenerationService {
   }
 
   /**
-   * Performs the actual AI generation with simulated progress tracking
+   * Performs the actual AI generation with real progress tracking
    */
   private async performAIGeneration(params: {
     source_text_id: string;
@@ -231,8 +247,16 @@ export class AIGenerationService {
     // 2. Select AI model
     const selectedModel = params.model || await this.selectBestModel(params.user_id);
 
-    // 3. Generate flashcards using AI with simulated progress
-    // For MVP, we'll use source_text_id as session identifier for progress tracking
+    // 3. Create generation session for progress tracking
+    await this.createGenerationSession({
+      source_text_id: params.source_text_id,
+      user_id: params.user_id,
+      total_flashcards: params.max_flashcards,
+      model_used: selectedModel,
+      request_data: params
+    });
+
+    // 4. Generate flashcards using AI with progress tracking
     const aiFlashcards = await this.callAIModelWithProgress(
       sourceText.content, 
       params.max_flashcards, 
@@ -240,62 +264,58 @@ export class AIGenerationService {
       params.source_text_id
     );
 
-    // 4. Save flashcards to database
-    const savedFlashcards: GeneratedFlashcardDTO[] = [];
+    // 5. Prepare flashcards for review (DON'T save to database yet)
+    const generatedFlashcards: GeneratedFlashcardDTO[] = [];
     let totalTokens = 0;
 
     for (let i = 0; i < aiFlashcards.length; i++) {
       const aiCard = aiFlashcards[i];
-      const cardStartTime = Date.now();
       
-      const flashcard = await this.flashcardService.createFlashcard({
+      // Create temporary ID for frontend tracking
+      const tempId = `temp_${Date.now()}_${i}`;
+      
+      generatedFlashcards.push({
+        id: tempId, // Temporary ID - will be replaced when saved to DB
         front: aiCard.front,
         back: aiCard.back,
         creation_type: 'llm',
-        status: 'draft',
-        user_id: params.user_id,
-        source_text_id: params.source_text_id,
-        category_ids: params.category_ids,
-        group_ids: params.group_ids
-      });
-
-      const cardEndTime = Date.now();
-      const generationTime = cardEndTime - cardStartTime;
-
-      savedFlashcards.push({
-        id: flashcard.id,
-        front: flashcard.front,
-        back: flashcard.back,
-        creation_type: 'llm',
-        status: 'draft',
+        status: 'pending_review', // New status for review phase
         confidence_score: aiCard.confidence_score,
-        generation_time_ms: generationTime
+        generation_time_ms: 0 // Will be set when actually saved
       });
 
       totalTokens += aiCard.token_count || 50;
+
+      // Update progress after each flashcard is prepared
+      await this.updateGenerationProgress(params.source_text_id, i + 1);
     }
 
     const totalTime = Date.now() - startTime;
-    const averageTime = savedFlashcards.length > 0 ? totalTime / savedFlashcards.length : 0;
+    const averageTime = generatedFlashcards.length > 0 ? totalTime / generatedFlashcards.length : 0;
 
     const stats: GenerationStatsDTO = {
-      total_generated: savedFlashcards.length,
+      total_generated: generatedFlashcards.length,
       total_time_ms: totalTime,
       average_time_per_card_ms: averageTime,
       total_tokens: totalTokens,
       model_used: selectedModel
     };
 
-    return {
+    const result = {
       source_text_id: params.source_text_id,
       model_used: selectedModel,
-      flashcards: savedFlashcards,
+      flashcards: generatedFlashcards,
       stats
     };
+
+    // 6. Complete generation session
+    await this.completeGenerationSession(params.source_text_id, result);
+
+    return result;
   }
 
   /**
-   * Enhanced AI model call with simulated progressive generation
+   * Generate flashcards using OpenRouter AI with specific prompt
    */
   private async callAIModelWithProgress(
     sourceText: string, 
@@ -303,81 +323,109 @@ export class AIGenerationService {
     model: string,
     sessionId: string
   ): Promise<Array<{front: string, back: string, confidence_score: number, token_count?: number}>> {
-    // Simulate progressive generation for better UX
-    const cards: Array<{front: string, back: string, confidence_score: number, token_count?: number}> = [];
-    
-    // Card templates for mock generation
-    const cardTemplates = [
-      {
-        front: "Co to jest TypeScript?",
-        back: "TypeScript to statycznie typowany superset JavaScript, który kompiluje się do czystego JavaScript",
-        confidence_score: 0.95,
-        token_count: 45
-      },
-      {
-        front: "Jakie są główne zalety używania React?",
-        back: "React oferuje komponentową architekturę, wirtualny DOM, jednokierunkowy przepływ danych i bogaty ekosystem",
-        confidence_score: 0.88,
-        token_count: 52
-      },
-      {
-        front: "Jak działa Virtual DOM w React?",
-        back: "Virtual DOM to reprezentacja prawdziwego DOM w pamięci. React porównuje zmiany i aktualizuje tylko te elementy, które się zmieniły",
-        confidence_score: 0.92,
-        token_count: 48
-      },
-      {
-        front: "Co to jest hook w React?",
-        back: "Hook to funkcja pozwalająca na używanie stanu i innych funkcji React w komponentach funkcyjnych",
-        confidence_score: 0.85,
-        token_count: 38
-      },
-      {
-        front: "Czym różni się let od var w JavaScript?",
-        back: "let ma zasięg blokowy i nie pozwala na ponowną deklarację, podczas gdy var ma zasięg funkcyjny i pozwala na hoisting",
-        confidence_score: 0.90,
-        token_count: 42
-      },
-      {
-        front: "Co to jest closure w JavaScript?",
-        back: "Closure to funkcja, która ma dostęp do zmiennych z zewnętrznego zakresu nawet po zakończeniu wykonania tej funkcji",
-        confidence_score: 0.87,
-        token_count: 41
-      },
-      {
-        front: "Jak działa async/await w JavaScript?",
-        back: "async/await to syntaktyczny cukier dla Promise, pozwalający na pisanie asynchronicznego kodu w sposób synchroniczny",
-        confidence_score: 0.93,
-        token_count: 46
-      },
-      {
-        front: "Co to jest REST API?",
-        back: "REST API to architektura dla usług webowych używająca HTTP i standardowych metod (GET, POST, PUT, DELETE)",
-        confidence_score: 0.89,
-        token_count: 39
-      }
-    ];
+    const startTime = Date.now();
 
-    const shuffled = [...cardTemplates].sort(() => 0.5 - Math.random());
-    const actualCount = Math.min(maxCards, Math.floor(Math.random() * 3) + 4); // 4-6 cards
+    // Create system prompt for flashcard generation
+    const systemPrompt = `Jesteś ekspertem w tworzeniu fiszek edukacyjnych. Na podstawie podanego tekstu stwórz precyzyjne fiszki, które pomogą w nauce i zapamiętywaniu kluczowych informacji.
 
-    // Generate cards progressively with realistic delays
-    for (let i = 0; i < actualCount; i++) {
-      // Simulate AI processing time
-      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
+WYMAGANIA:
+- Front: maksymalnie 200 znaków - jasne, konkretne pytanie lub pojęcie
+- Back: maksymalnie 500 znaków - zwięzła, precyzyjna odpowiedź
+- Fiszki mają być różnorodne i pokrywać najważniejsze aspekty tekstu
+- Unikaj powtórzeń, każda fiszka ma być unikalna
+- Używaj prostego, zrozumiałego języka
+
+ZWRÓĆ ODPOWIEDŹ WYŁĄCZNIE W FORMACIE JSON:
+{
+  "card1": { "front": "pytanie/pojęcie", "back": "odpowiedź/wyjaśnienie" },
+  "card2": { "front": "pytanie/pojęcie", "back": "odpowiedź/wyjaśnienie" },
+  ...
+}
+
+NIE DODAWAJ ŻADNEGO INNEGO TEKSTU, TYLKO CZYSTY JSON.`;
+
+    const userPrompt = `Stwórz maksymalnie ${maxCards} fiszek na podstawie tego tekstu:
+
+${sourceText}`;
+
+    try {
+      // Call OpenRouter API
+      const response = await this.openRouterService.chat([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ], {
+        temperature: 0.7,
+        max_tokens: 6000, 
+        top_p: 0.9
+      }, model);
+
+      const aiResponse = response.choices[0]?.message?.content || '';
+      const totalTokens = response.usage?.total_tokens || 0;
+      const endTime = Date.now();
+      const totalTime = endTime - startTime;
+
+      // Parse and validate JSON response using schema
+      const flashcardsData = this.parseFlashcardsFromAI(aiResponse);
       
-      const template = shuffled[i % shuffled.length];
-      const variation = i > 0 ? ` (${i + 1})` : '';
-      
-      cards.push({
-        front: template.front + variation,
-        back: template.back,
-        confidence_score: template.confidence_score + (Math.random() * 0.1 - 0.05),
-        token_count: template.token_count + Math.floor(Math.random() * 10 - 5)
-      });
+      // Convert to expected format with confidence scores
+      const cards = Object.entries(flashcardsData).map(([key, card]) => ({
+        front: card.front, // Already validated by schema
+        back: card.back, // Already validated by schema  
+        confidence_score: 0.85 + (Math.random() * 0.15), // 0.85-1.0 range
+        token_count: Math.floor(totalTokens / Object.keys(flashcardsData).length)
+      }));
+
+      return cards;
+
+    } catch (error) {
+      console.error('AI generation error:', error);
+      throw {
+        type: 'AI_GENERATION_ERROR',
+        message: 'Błąd podczas generowania fiszek przez AI',
+        details: { ai: [error instanceof Error ? error.message : 'Nieznany błąd AI'] },
+        statusCode: 500
+      };
     }
+  }
 
-    return cards;
+  /**
+   * Parse flashcards from AI response JSON using validation schema
+   */
+  private parseFlashcardsFromAI(aiResponse: string): Record<string, {front: string, back: string}> {
+    try {
+      // Clean up response - remove any extra text before/after JSON
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Nie znaleziono poprawnego formatu JSON w odpowiedzi AI');
+      }
+
+      const jsonString = jsonMatch[0];
+      const parsed = JSON.parse(jsonString);
+
+      // Use schema validation instead of manual validation
+      const validation = validateAIFlashcardsResponse(parsed);
+      if (!validation.success) {
+        throw validation.error;
+      }
+
+      return validation.data!;
+
+    } catch (error) {
+      console.error('Error parsing AI response:', error, 'Response:', aiResponse.substring(0, 500) + '...');
+      
+      // If it's already a validation error, re-throw
+      if (error && typeof error === 'object' && 'type' in error) {
+        throw error;
+      }
+      
+      // Otherwise wrap in parsing error
+      throw {
+        type: 'AI_PARSING_ERROR',
+        message: 'Błąd parsowania odpowiedzi AI',
+        details: { parsing: [error instanceof Error ? error.message : 'Błąd parsowania JSON'] },
+        statusCode: 500
+      };
+    }
   }
 
   /**
@@ -402,5 +450,71 @@ export class AIGenerationService {
       message: 'Brak dostępnych modeli AI',
       statusCode: 503
     };
+  }
+
+  /**
+   * Creates a generation session for progress tracking
+   */
+  private async createGenerationSession(params: {
+    source_text_id: string;
+    user_id: string;
+    total_flashcards: number;
+    model_used: string;
+    request_data: any;
+  }): Promise<void> {
+    const { error } = await this.supabase
+      .from('generation_sessions')
+      .insert({
+        source_text_id: params.source_text_id,
+        user_id: params.user_id,
+        status: 'generating',
+        total_flashcards: params.total_flashcards,
+        current_flashcards: 0,
+        model_used: params.model_used,
+        request_data: params.request_data
+      });
+
+    if (error) {
+      console.error('Failed to create generation session:', error);
+      // Don't throw error - progress tracking is not critical
+    }
+  }
+
+  /**
+   * Updates generation progress
+   */
+  private async updateGenerationProgress(sourceTextId: string, currentCards: number): Promise<void> {
+    const { error } = await this.supabase
+      .from('generation_sessions')
+      .update({ 
+        current_flashcards: currentCards,
+        updated_at: new Date().toISOString()
+      })
+      .eq('source_text_id', sourceTextId);
+
+    if (error) {
+      console.error('Failed to update generation progress:', error);
+      // Don't throw error - progress tracking is not critical
+    }
+  }
+
+  /**
+   * Completes generation session
+   */
+  private async completeGenerationSession(sourceTextId: string, result: any): Promise<void> {
+    const { error } = await this.supabase
+      .from('generation_sessions')
+      .update({ 
+        status: 'completed',
+        result_data: result,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('source_text_id', sourceTextId);
+
+    if (error) {
+      console.error('Failed to complete generation session:', error);
+      // Don't throw error - progress tracking is not critical
+    }
   }
 } 

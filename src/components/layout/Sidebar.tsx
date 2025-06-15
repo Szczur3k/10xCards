@@ -203,29 +203,6 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
           </CollapsibleContent>
         </Collapsible>
       </div>
-
-      {/* User Profile Section */}
-      <div className="p-4 border-t border-border">
-        <div className="space-y-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2"
-          >
-            <User className="h-4 w-4" />
-            User Profile
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </div>
     </aside>
   );
 } 

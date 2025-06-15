@@ -16,6 +16,8 @@ interface HeaderProps {
   onGenerateAI?: () => void;
   onAddManual?: () => void;
   selectedCount?: number;
+  totalCount?: number;
+  onSelectAll?: () => void;
 }
 
 /**
@@ -23,7 +25,7 @@ interface HeaderProps {
  * Contains search bar with debounced input, Generate AI button, Add Manual button
  * Shows selected count when cards are selected for bulk operations
  */
-export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0 }: HeaderProps) {
+export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0, totalCount = 0, onSelectAll }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
 
@@ -79,14 +81,34 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0 
           </div>
         </div>
 
-        {/* Center - Selection info (when cards selected) */}
-        {selectedCount > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg">
-            <span className="text-sm font-medium">
-              {selectedCount} card{selectedCount !== 1 ? 's' : ''} selected
-            </span>
-          </div>
-        )}
+        {/* Center - Selection info and Select All button */}
+        <div className="flex items-center gap-3">
+          {selectedCount > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg">
+              <span className="text-sm font-medium">
+                {selectedCount} card{selectedCount !== 1 ? 's' : ''} selected
+              </span>
+            </div>
+          )}
+          
+          {/* Select All Button - show when there are cards and not all selected */}
+          {totalCount > 0 && selectedCount < totalCount && onSelectAll && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onSelectAll}
+              className="gap-2"
+            >
+              <input 
+                type="checkbox" 
+                className="w-3 h-3" 
+                checked={false}
+                readOnly
+              />
+              Select All ({totalCount})
+            </Button>
+          )}
+        </div>
 
         {/* Right side - Primary actions and user menu */}
         <div className="flex items-center gap-3">
@@ -138,28 +160,6 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0 
           </DropdownMenu>
         </div>
       </div>
-
-      {/* Bulk Operations Bar - Shows when cards are selected */}
-      {selectedCount > 0 && (
-        <div className="border-t border-border bg-muted/50 px-6 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Bulk operations available
-            </span>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                Change Status
-              </Button>
-              <Button variant="outline" size="sm">
-                Assign Categories
-              </Button>
-              <Button variant="destructive" size="sm">
-                Delete Selected
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 } 

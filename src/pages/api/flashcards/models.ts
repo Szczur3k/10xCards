@@ -16,7 +16,7 @@ import { AIModelService } from '../../../lib/services/ai-model.service';
 export async function GET(context: APIContext): Promise<Response> {
   try {
     // Auth validation from middleware
-    const { user, isAuthenticated } = context.locals;
+    const { user, isAuthenticated, supabase } = context.locals;
     
     if (!isAuthenticated || !user) {
       return new Response(
@@ -37,8 +37,8 @@ export async function GET(context: APIContext): Promise<Response> {
       user_id: user.id
     };
 
-    // Get available models
-    const modelsResponse: ModelsResponseDTO = await aiModelService.getAvailableModels(command);
+    // Get available models with supabase client
+    const modelsResponse: ModelsResponseDTO = await aiModelService.getAvailableModels(command, supabase);
 
     // Return success response with caching headers
     return new Response(JSON.stringify(modelsResponse), {

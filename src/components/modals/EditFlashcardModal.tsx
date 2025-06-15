@@ -50,6 +50,7 @@ export function EditFlashcardModal({
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const { createFlashcard, updateFlashcard, isCreating, isUpdating } = useFlashcards();
   const { addToast } = useToast();
@@ -123,6 +124,8 @@ export function EditFlashcardModal({
     
     if (!isFormValid || isProcessing) return;
 
+    setIsSaving(true);
+    
     try {
       if (isEditMode) {
         // Update existing flashcard
@@ -173,6 +176,8 @@ export function EditFlashcardModal({
         title: `Błąd podczas ${isEditMode ? 'aktualizacji' : 'tworzenia'}`,
         description: error instanceof Error ? error.message : 'Wystąpił nieoczekiwany błąd',
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -218,7 +223,7 @@ export function EditFlashcardModal({
               variant="ghost"
               size="icon"
               onClick={handleClose}
-              disabled={isProcessing}
+              disabled={isSaving}
             >
               <X className="w-4 h-4" />
             </Button>
@@ -247,7 +252,7 @@ export function EditFlashcardModal({
                       ? 'border-border focus:ring-primary/20' 
                       : 'border-destructive focus:ring-destructive/20'
                   }`}
-                  disabled={isProcessing}
+                  disabled={isSaving}
                 />
                 {front.trim().length === 0 && front.length > 0 && (
                   <div className="flex items-center gap-2 text-sm text-destructive">
@@ -289,7 +294,7 @@ export function EditFlashcardModal({
                       ? 'border-border focus:ring-primary/20' 
                       : 'border-destructive focus:ring-destructive/20'
                   }`}
-                  disabled={isProcessing}
+                  disabled={isSaving}
                 />
                 {back.trim().length === 0 && back.length > 0 && (
                   <div className="flex items-center gap-2 text-sm text-destructive">
@@ -318,7 +323,7 @@ export function EditFlashcardModal({
                   value={status}
                   onChange={(e) => setStatus(e.target.value as FlashcardStatus)}
                   className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  disabled={isProcessing}
+                  disabled={isSaving}
                 >
                   <option value="draft">Szkic</option>
                   <option value="published">Opublikowane</option>
@@ -343,7 +348,7 @@ export function EditFlashcardModal({
                   searchPlaceholder="Szukaj kategorii..."
                   emptyMessage="Brak kategorii"
                   loading={isLoadingCategories}
-                  disabled={isProcessing}
+                  disabled={isSaving}
                   onCreate={createCategory}
                   createLabel="Utwórz kategorię"
                 />
@@ -366,7 +371,7 @@ export function EditFlashcardModal({
                   searchPlaceholder="Szukaj grup..."
                   emptyMessage="Brak grup"
                   loading={isLoadingGroups}
-                  disabled={isProcessing}
+                  disabled={isSaving}
                   onCreate={createGroup}
                   createLabel="Utwórz grupę"
                 />
@@ -387,16 +392,16 @@ export function EditFlashcardModal({
                   type="button"
                   variant="outline"
                   onClick={handleClose}
-                  disabled={isProcessing}
+                  disabled={isSaving}
                 >
                   Anuluj
                 </Button>
                 <Button
                   type="submit"
-                  disabled={!isFormValid || isProcessing}
+                  disabled={!isFormValid || isSaving}
                   className="gap-2"
                 >
-                  {isProcessing ? (
+                  {isSaving ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                       {isEditMode ? 'Zapisuję...' : 'Tworzę...'}

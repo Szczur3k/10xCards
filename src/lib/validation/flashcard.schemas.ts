@@ -459,4 +459,65 @@ export const validateFlashcardId = (id: string) => {
     }
     throw error;
   }
-}; 
+};
+
+/**
+ * Schema for validating AI-generated flashcards response
+ * Validates the JSON structure returned by AI
+ */
+export const aiFlashcardsResponseSchema = z.record(
+  z.string(), // key like "fiszka1", "fiszka2"
+  z.object({
+    front: z.string()
+      .min(1, 'Przód fiszki nie może być pusty')
+      .max(200, 'Przód fiszki nie może przekraczać 200 znaków')
+      .trim(),
+    back: z.string()
+      .min(1, 'Tył fiszki nie może być pusty')
+      .max(500, 'Tył fiszki nie może przekraczać 500 znaków')
+      .trim()
+  })
+).refine(
+  (data) => Object.keys(data).length > 0,
+  'Odpowiedź AI musi zawierać co najmniej jedną fiszkę'
+);
+
+/**
+ * Validation function for AI flashcards response
+ */
+export function validateAIFlashcardsResponse(data: unknown) {
+  try {
+    return {
+      success: true,
+      data: aiFlashcardsResponseSchema.parse(data)
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const details: Record<string, string[]> = {};
+      error.errors.forEach(err => {
+        const path = err.path.join('.');
+        if (!details[path]) details[path] = [];
+        details[path].push(err.message);
+      });
+      
+      return {
+        success: false,
+        error: {
+          type: 'AI_PARSING_ERROR',
+          message: 'Nieprawidłowy format odpowiedzi AI',
+          details,
+          statusCode: 500
+        }
+      };
+    }
+    
+    return {
+      success: false,
+      error: {
+        type: 'AI_PARSING_ERROR',
+        message: 'Błąd parsowania odpowiedzi AI',
+        statusCode: 500
+      }
+    };
+  }
+} 

@@ -179,7 +179,7 @@ export interface GeneratedFlashcardDTO {
   front: string;
   back: string;
   creation_type: 'llm';
-  status: 'draft';
+  status: 'draft' | 'pending_review';
   confidence_score: number;
   generation_time_ms: number;
 }

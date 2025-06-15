@@ -41,8 +41,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Validate request data
+    console.log('Received request data:', JSON.stringify(requestData, null, 2));
     const validation = validateGenerateFlashcardsRequest(requestData);
     if (!validation.success) {
+      console.error('Validation failed:', JSON.stringify(validation.error, null, 2));
       return new Response(JSON.stringify(validation.error), {
         status: validation.error!.statusCode,
         headers: { 'Content-Type': 'application/json' }

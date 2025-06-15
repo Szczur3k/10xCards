@@ -1,379 +1,335 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useCallback } from 'react';
+import { Button } from '../ui/button';
 import { 
   X, 
   ChevronLeft, 
-  ChevronRight,
-  Check,
-  X as XIcon,
-  Edit3,
-  Eye,
-  EyeOff,
+  ChevronRight, 
+  Check, 
   RotateCcw,
-  CheckCircle,
-  XCircle,
-  Loader2
+  Save,
+  Trash2
 } from 'lucide-react';
-import { useReview } from '../../hooks/useReview';
+import { useModal } from './ModalSystem';
+import { useToast } from '../providers/ToastProvider';
 import type { GeneratedFlashcardDTO } from '../../types';
 
 interface ReviewCarouselProps {
   isOpen: boolean;
   flashcards: GeneratedFlashcardDTO[];
   onClose: () => void;
-  onComplete?: () => void;
+  onComplete: () => void;
 }
 
 /**
- * ReviewCarousel - Modal carousel for reviewing AI-generated flashcards
- * Provides navigation, editing, and accept/reject actions
- * Implements version comparison and bulk operations
+ * ReviewCarousel - Modal for reviewing generated flashcards
+ * Allows users to review, edit, and accept/reject flashcards
+ * Implements carousel navigation and bulk actions
  */
 export function ReviewCarousel({ 
   isOpen, 
   flashcards, 
-  onClose,
+  onClose, 
   onComplete 
 }: ReviewCarouselProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [showBack, setShowBack] = useState(false);
-  const [editFront, setEditFront] = useState('');
-  const [editBack, setEditBack] = useState('');
+  // All hooks must be called before any conditional returns
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [acceptedCards, setAcceptedCards] = useState<Set<string>>(new Set());
+  const [rejectedCards, setRejectedCards] = useState<Set<string>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
 
-  const {
-    initializeReview,
-    currentFlashcard,
-    previousVersion,
-    currentIndex,
-    totalCards,
-    acceptedCount,
-    remainingCount,
-    goToNext,
-    goToPrevious,
-    canGoNext,
-    canGoPrevious,
-    showPreviousVersion,
-    toggleVersionComparison,
-    hasChanges,
-    editCurrentFlashcard,
-    acceptCurrentFlashcard,
-    rejectCurrentFlashcard,
-    acceptAllRemaining,
-    rejectAllRemaining,
-    clearReview,
-    isProcessing,
-    isComplete,
-    isEmpty
-  } = useReview(flashcards);
+  const { sharedData, clearSharedData } = useModal();
+  const { addToast } = useToast();
 
-  // Initialize review when modal opens
-  React.useEffect(() => {
-    if (isOpen && flashcards.length > 0) {
-      initializeReview(flashcards);
+  // Safe access to current card and counts
+  const totalCards = flashcards.length;
+  const currentCard = flashcards[currentIndex] || flashcards[0];
+  const acceptedCount = acceptedCards.size;
+  const rejectedCount = rejectedCards.size;
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < totalCards - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setIsFlipped(false);
     }
-  }, [isOpen, flashcards, initializeReview]);
+  }, [currentIndex, totalCards]);
 
-  // Initialize edit form when flashcard changes
-  React.useEffect(() => {
-    if (currentFlashcard) {
-      setEditFront(currentFlashcard.front);
-      setEditBack(currentFlashcard.back);
+  const handlePrevious = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+      setIsFlipped(false);
     }
-  }, [currentFlashcard]);
+  }, [currentIndex]);
 
-  // Handle completion
-  React.useEffect(() => {
-    if (isComplete && onComplete) {
+  const handleFlip = useCallback(() => {
+    setIsFlipped(!isFlipped);
+  }, [isFlipped]);
+
+  const handleAccept = useCallback(() => {
+    if (!currentCard) return;
+    const cardId = currentCard.id;
+    setAcceptedCards(prev => new Set(prev).add(cardId));
+    setRejectedCards(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(cardId);
+      return newSet;
+    });
+    
+    // Auto-advance to next card
+    if (currentIndex < totalCards - 1) {
+      handleNext();
+    }
+  }, [currentCard?.id, currentIndex, totalCards, handleNext]);
+
+  const handleReject = useCallback(() => {
+    if (!currentCard) return;
+    const cardId = currentCard.id;
+    setRejectedCards(prev => new Set(prev).add(cardId));
+    setAcceptedCards(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(cardId);
+      return newSet;
+    });
+    
+    // Auto-advance to next card
+    if (currentIndex < totalCards - 1) {
+      handleNext();
+    }
+  }, [currentCard?.id, currentIndex, totalCards, handleNext]);
+
+  const handleAcceptAll = useCallback(() => {
+    const allIds = flashcards.map(card => card.id);
+    setAcceptedCards(new Set(allIds));
+    setRejectedCards(new Set());
+  }, [flashcards]);
+
+  const handleRejectAll = useCallback(() => {
+    const allIds = flashcards.map(card => card.id);
+    setRejectedCards(new Set(allIds));
+    setAcceptedCards(new Set());
+  }, [flashcards]);
+
+  const handleSave = useCallback(async () => {
+    if (acceptedCards.size === 0) {
+      addToast({
+        type: 'warning',
+        title: 'Brak zaakceptowanych fiszek',
+        description: 'Musisz zaakceptować przynajmniej jedną fiszkę przed zapisaniem.'
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const acceptedFlashcards = flashcards.filter(card => acceptedCards.has(card.id));
+      
+      // Prepare request data for accept API
+      const requestData = {
+        flashcards: acceptedFlashcards.map(card => ({
+          front: card.front,
+          back: card.back,
+          temp_id: card.id
+        })),
+        category_ids: sharedData.selectedCategories,
+        group_ids: sharedData.selectedGroups
+      };
+
+      const response = await fetch('/api/flashcards/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save flashcards');
+      }
+
+      const result = await response.json();
+      
+      addToast({
+        type: 'success',
+        title: 'Fiszki zapisane!',
+        description: `Pomyślnie zapisano ${result.accepted_count} fiszek.`
+      });
+
+      // Clear shared data and complete
+      clearSharedData();
       onComplete();
-    }
-  }, [isComplete, onComplete]);
-
-  if (!isOpen) return null;
-
-  if (isEmpty) {
-    return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-background border border-border rounded-lg shadow-xl max-w-md w-full p-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <h3 className="text-lg font-semibold mb-2">Przegląd zakończony!</h3>
-          <p className="text-muted-foreground mb-6">
-            Wszystkie fiszki zostały przetworzone. Zaakceptowane fiszki znajdziesz w głównej kolekcji.
-          </p>
-          <Button onClick={onClose} className="w-full">
-            Zamknij
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentFlashcard) return null;
-
-  const handleEdit = () => {
-    if (isEditing) {
-      // Save changes
-      editCurrentFlashcard({
-        front: editFront.trim(),
-        back: editBack.trim()
+      
+    } catch (error) {
+      console.error('Error saving flashcards:', error);
+      addToast({
+        type: 'error',
+        title: 'Błąd zapisywania',
+        description: 'Nie udało się zapisać fiszek. Spróbuj ponownie.'
       });
-    } else {
-      // Reset edit form
-      setEditFront(currentFlashcard.front);
-      setEditBack(currentFlashcard.back);
+    } finally {
+      setIsSaving(false);
     }
-    setIsEditing(!isEditing);
+  }, [acceptedCards, flashcards, sharedData, addToast, clearSharedData, onComplete]);
+
+  const getCardStatus = (cardId: string) => {
+    if (acceptedCards.has(cardId)) return 'accepted';
+    if (rejectedCards.has(cardId)) return 'rejected';
+    return 'pending';
   };
 
-  const handleAccept = () => {
-    if (isEditing) {
-      // Save changes first
-      editCurrentFlashcard({
-        front: editFront.trim(),
-        back: editBack.trim()
-      });
-      setIsEditing(false);
-    }
-    acceptCurrentFlashcard();
-  };
-
-  const handleReject = () => {
-    if (isEditing) {
-      setIsEditing(false);
-    }
-    rejectCurrentFlashcard();
-  };
-
-  const displayFlashcard = showPreviousVersion && previousVersion ? previousVersion : currentFlashcard;
-  const displayFront = isEditing ? editFront : displayFlashcard.front;
-  const displayBack = isEditing ? editBack : displayFlashcard.back;
+  // Conditional rendering after all hooks
+  if (!isOpen || flashcards.length === 0) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-background border border-border rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
-          <div className="flex items-center gap-4">
-            <div>
-              <h2 className="text-lg font-semibold">Przegląd fiszek AI</h2>
-              <p className="text-sm text-muted-foreground">
-                Fiszka {currentIndex + 1} z {totalCards} • 
-                Zaakceptowano: {acceptedCount} • 
-                Pozostało: {remainingCount}
-              </p>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="flex-1 max-w-xs">
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentIndex + 1) / totalCards) * 100}%` }}
-                />
-              </div>
-            </div>
-            
-            {/* Version Comparison Toggle */}
-            {hasChanges && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleVersionComparison}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                {showPreviousVersion ? 'Pokaż nową' : 'Pokaż oryginalną'}
-              </Button>
-            )}
+          <div>
+            <h2 className="text-lg font-semibold">Przegląd wygenerowanych fiszek</h2>
+            <p className="text-sm text-muted-foreground">
+              Fiszka {currentIndex + 1} z {totalCards} • 
+              Zaakceptowane: {acceptedCount} • 
+              Odrzucone: {rejectedCount}
+            </p>
           </div>
-          
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
-              clearReview();
-              onClose();
-            }}
+            onClick={onClose}
           >
             <X className="w-4 h-4" />
           </Button>
         </div>
 
         {/* Card Display */}
-        <div className="p-8 flex-1">
+        <div className="p-6 flex-1">
           <div className="max-w-2xl mx-auto">
-            <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
-              {/* Card Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    {showBack ? 'Tył' : 'Przód'}
-                  </span>
-                  {showPreviousVersion && (
-                    <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                      Wersja oryginalna
-                    </span>
-                  )}
-                  {hasChanges && !showPreviousVersion && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                      Zmodyfikowana
-                    </span>
-                  )}
+            {/* Card */}
+            <div 
+              className="relative w-full h-64 mb-6 cursor-pointer"
+              onClick={handleFlip}
+            >
+              <div className={`absolute inset-0 w-full h-full transition-transform duration-500 preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+                {/* Front */}
+                <div className="absolute inset-0 w-full h-full backface-hidden">
+                  <div className="w-full h-full bg-card border border-border rounded-lg p-6 flex items-center justify-center shadow-lg">
+                    <div className="text-center">
+                      <p className="text-lg font-medium mb-2">{currentCard.front}</p>
+                      <p className="text-sm text-muted-foreground">Kliknij aby obrócić</p>
+                    </div>
+                  </div>
                 </div>
                 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowBack(!showBack)}
-                  className="gap-2"
-                >
-                  {showBack ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {showBack ? 'Ukryj tył' : 'Pokaż tył'}
-                </Button>
-              </div>
-
-              {/* Card Content */}
-              <div className="space-y-4">
-                {/* Front */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Przód fiszki
-                  </label>
-                  {isEditing ? (
-                    <textarea
-                      value={editFront}
-                      onChange={(e) => setEditFront(e.target.value)}
-                      className="w-full h-24 px-3 py-2 border border-border rounded-md resize-none text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="Przód fiszki..."
-                    />
-                  ) : (
-                    <div className="p-3 bg-muted/50 rounded-md min-h-[96px] flex items-center">
-                      <p className="text-sm whitespace-pre-wrap">{displayFront}</p>
-                    </div>
-                  )}
-                </div>
-
                 {/* Back */}
-                {(showBack || isEditing) && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Tył fiszki
-                    </label>
-                    {isEditing ? (
-                      <textarea
-                        value={editBack}
-                        onChange={(e) => setEditBack(e.target.value)}
-                        className="w-full h-24 px-3 py-2 border border-border rounded-md resize-none text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        placeholder="Tył fiszki..."
-                      />
-                    ) : (
-                      <div className="p-3 bg-muted/50 rounded-md min-h-[96px] flex items-center">
-                        <p className="text-sm whitespace-pre-wrap">{displayBack}</p>
-                      </div>
-                    )}
+                <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
+                  <div className="w-full h-full bg-card border border-border rounded-lg p-6 flex items-center justify-center shadow-lg">
+                    <div className="text-center">
+                      <p className="text-lg font-medium mb-2">{currentCard.back}</p>
+                      <p className="text-sm text-muted-foreground">Kliknij aby obrócić</p>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Navigation and Actions */}
-        <div className="border-t border-border p-6">
-          <div className="flex items-center justify-between">
+            {/* Card Status */}
+            <div className="text-center mb-6">
+              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
+                getCardStatus(currentCard.id) === 'accepted' 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                  : getCardStatus(currentCard.id) === 'rejected'
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+              }`}>
+                {getCardStatus(currentCard.id) === 'accepted' && <Check className="w-4 h-4" />}
+                {getCardStatus(currentCard.id) === 'rejected' && <X className="w-4 h-4" />}
+                {getCardStatus(currentCard.id) === 'pending' && <RotateCcw className="w-4 h-4" />}
+                {getCardStatus(currentCard.id) === 'accepted' ? 'Zaakceptowana' : 
+                 getCardStatus(currentCard.id) === 'rejected' ? 'Odrzucona' : 'Oczekuje'}
+              </div>
+            </div>
+
             {/* Navigation */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-6">
               <Button
                 variant="outline"
-                size="sm"
-                onClick={goToPrevious}
-                disabled={!canGoPrevious || isProcessing}
+                onClick={handlePrevious}
+                disabled={currentIndex === 0}
                 className="gap-2"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Poprzednia
               </Button>
-              
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleReject}
+                  className="gap-2 text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Odrzuć
+                </Button>
+                <Button
+                  onClick={handleAccept}
+                  className="gap-2 bg-green-600 hover:bg-green-700"
+                >
+                  <Check className="w-4 h-4" />
+                  Akceptuj
+                </Button>
+              </div>
+
               <Button
                 variant="outline"
-                size="sm"
-                onClick={goToNext}
-                disabled={!canGoNext || isProcessing}
+                onClick={handleNext}
+                disabled={currentIndex === totalCards - 1}
                 className="gap-2"
               >
                 Następna
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+          </div>
+        </div>
 
-            {/* Main Actions */}
-            <div className="flex items-center gap-3">
-              {/* Edit Button */}
-              <Button
-                variant="outline"
-                onClick={handleEdit}
-                disabled={isProcessing}
-                className="gap-2"
-              >
-                <Edit3 className="w-4 h-4" />
-                {isEditing ? 'Zapisz zmiany' : 'Edytuj'}
-              </Button>
-
-              {/* Reject Button */}
-              <Button
-                variant="outline"
-                onClick={handleReject}
-                disabled={isProcessing}
-                className="gap-2 text-destructive hover:text-destructive"
-              >
-                {isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <XIcon className="w-4 h-4" />
-                )}
-                Odrzuć
-              </Button>
-
-              {/* Accept Button */}
-              <Button
-                onClick={handleAccept}
-                disabled={isProcessing}
-                className="gap-2"
-              >
-                {isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
-                Akceptuj
-              </Button>
-            </div>
-
-            {/* Bulk Actions */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={rejectAllRemaining}
-                disabled={isProcessing || remainingCount === 0}
-                className="text-destructive hover:text-destructive"
-              >
-                <XCircle className="w-4 h-4 mr-1" />
-                Odrzuć wszystkie
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={acceptAllRemaining}
-                disabled={isProcessing || remainingCount === 0}
-                className="text-green-600 hover:text-green-700"
-              >
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Akceptuj wszystkie
-              </Button>
-            </div>
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 p-6 border-t border-border">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleAcceptAll}
+              className="gap-2"
+            >
+              <Check className="w-4 h-4" />
+              Akceptuj wszystkie
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleRejectAll}
+              className="gap-2 text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+              Odrzuć wszystkie
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={onClose}
+            >
+              Anuluj
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={acceptedCards.size === 0 || isSaving}
+              className="gap-2"
+            >
+              {isSaving ? (
+                <RotateCcw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {isSaving ? 'Zapisywanie...' : `Zapisz fiszki (${acceptedCount})`}
+            </Button>
           </div>
         </div>
       </div>
