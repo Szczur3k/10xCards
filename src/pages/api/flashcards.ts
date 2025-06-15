@@ -1,7 +1,6 @@
 import type { APIContext } from 'astro';
 import { FlashcardService } from '../../lib/services/flashcard.service';
 import { validateCreateFlashcardRequest, validateGetFlashcardsQuery } from '../../lib/validation/flashcard.schemas';
-import { isMockAuthEnabled, getMockUser, createMockSupabaseClient } from '../../lib/auth/mock-auth';
 import type { 
   CreateFlashcardCommand, 
   ErrorResponseDTO,
@@ -15,234 +14,166 @@ export const prerender = false;
 
 /**
  * GET /api/flashcards
- * Gets user's flashcards with filtering, sorting and pagination
- * Requires JWT authentication
+ * Returns paginated list of user's flashcards with filtering and sorting
  */
 export async function GET(context: APIContext): Promise<Response> {
   try {
-    // 1. Get authenticated user (mock or real)
-    let supabase: any;
-    let user: any;
-
-    if (isMockAuthEnabled()) {
-      // Mock authentication for development
-      console.log('🔧 Using mock authentication for GET');
-      supabase = createMockSupabaseClient();
-      user = getMockUser();
-    } else {
-      // Real Supabase authentication
-      supabase = context.locals.supabase;
-      if (!supabase) {
-        return createErrorResponse(
-          'AUTHORIZATION_ERROR',
-          'Supabase client not available',
-          401
-        );
-      }
-
-      // Get user from JWT token
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        return createErrorResponse(
-          'UNAUTHORIZED',
-          'Token autoryzacji jest wymagany lub nieprawidłowy',
-          401
-        );
-      }
-      
-      user = authUser;
+    // Auth validation from middleware
+    const { user, isAuthenticated, supabase } = context.locals;
+    
+    if (!isAuthenticated || !user) {
+      return new Response(
+        JSON.stringify({
+          error: 'UNAUTHORIZED',
+          message: 'Wymagane jest zalogowanie'
+        } as ErrorResponseDTO),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // 2. Parse and validate query parameters
-    const queryParams = await validateGetFlashcardsQuery(context.url.searchParams);
+    // Parse and validate query parameters
+    const url = new URL(context.request.url);
+    const queryParams: FlashcardQueryParams = {
+      page: parseInt(url.searchParams.get('page') || '1'),
+      limit: parseInt(url.searchParams.get('limit') || '20'),
+      status: url.searchParams.get('status') as any,
+      creation_type: url.searchParams.get('creation_type') as any,
+      category_id: url.searchParams.get('category_id') || undefined,
+      group_id: url.searchParams.get('group_id') || undefined,
+      sort: url.searchParams.get('sort') as any || 'created_at',
+      order: url.searchParams.get('order') as any || 'desc'
+    };
 
-    // 3. Execute business logic through service
+    // Initialize service and get flashcards
     const flashcardService = new FlashcardService(supabase);
-    const result = await flashcardService.getFlashcards(user.id, queryParams);
+    const result: FlashcardListResponseDTO = await flashcardService.getFlashcards(user.id, queryParams);
 
-    // 4. Return success response
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error: any) {
     console.error('GET /api/flashcards error:', error);
-    return handleApiError(error);
+
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'type' in error) {
+      const errorResponse: ErrorResponseDTO = {
+        error: error.type,
+        message: error.message,
+        details: error.details
+      };
+
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Handle unexpected errors
+    const errorResponse: ErrorResponseDTO = {
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Wystąpił nieoczekiwany błąd serwera'
+    };
+
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 /**
  * POST /api/flashcards
- * Creates a new flashcard manually
- * Requires JWT authentication
+ * Creates a new flashcard for the authenticated user
  */
 export async function POST(context: APIContext): Promise<Response> {
   try {
-    // 1. Get authenticated user (mock or real)
-    let supabase: any;
-    let user: any;
-
-    if (isMockAuthEnabled()) {
-      // Mock authentication for development
-      console.log('🔧 Using mock authentication');
-      supabase = createMockSupabaseClient();
-      user = getMockUser();
-    } else {
-      // Real Supabase authentication
-      supabase = context.locals.supabase;
-      if (!supabase) {
-        return createErrorResponse(
-          'AUTHORIZATION_ERROR',
-          'Supabase client not available',
-          401
-        );
-      }
-
-      // Get user from JWT token
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        return createErrorResponse(
-          'UNAUTHORIZED',
-          'Token autoryzacji jest wymagany lub nieprawidłowy',
-          401
-        );
-      }
-      
-      user = authUser;
-    }
-
-    // 2. Parse and validate request body
-    const requestBody = await context.request.json().catch(() => null);
-    if (!requestBody) {
-      return createErrorResponse(
-        'INVALID_REQUEST',
-        'Treść żądania jest wymagana',
-        400
+    // Auth validation from middleware
+    const { user, isAuthenticated, supabase } = context.locals;
+    
+    if (!isAuthenticated || !user) {
+      return new Response(
+        JSON.stringify({
+          error: 'UNAUTHORIZED',
+          message: 'Wymagane jest zalogowanie'
+        } as ErrorResponseDTO),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
-    // 3. Validate input data using Zod schema
-    const validatedData = await validateCreateFlashcardRequest(requestBody);
+    // Parse request body
+    let requestData: unknown;
+    try {
+      requestData = await context.request.json();
+    } catch (error) {
+      return new Response(
+        JSON.stringify({
+          error: 'INVALID_JSON',
+          message: 'Nieprawidłowy format JSON w żądaniu'
+        } as ErrorResponseDTO),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
-    // 4. Create command for service layer
-    const command: CreateFlashcardCommand = {
+    // Validate request data
+    const validatedData = await validateCreateFlashcardRequest(requestData);
+
+    // Create flashcard command
+    const createCommand: CreateFlashcardCommand = {
+      user_id: user.id,
       front: validatedData.front,
       back: validatedData.back,
       creation_type: 'manual',
       status: validatedData.status || 'draft',
-      user_id: user.id,
-      source_text_id: undefined,
-      category_ids: validatedData.category_ids,
-      group_ids: validatedData.group_ids
+      category_ids: validatedData.category_ids || [],
+      group_ids: validatedData.group_ids || []
     };
 
-    // 5. Execute business logic through service
+    // Initialize service and create flashcard
     const flashcardService = new FlashcardService(supabase);
-    const createdFlashcard = await flashcardService.createFlashcard(command);
+    const result: FlashcardDTO = await flashcardService.createFlashcard(createCommand);
 
-    // 6. Return success response
-    return new Response(JSON.stringify(createdFlashcard), {
+    return new Response(JSON.stringify(result), {
       status: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error: any) {
     console.error('POST /api/flashcards error:', error);
-    return handleApiError(error);
-  }
-}
 
-/**
- * Creates standardized error response
- */
-function createErrorResponse(
-  errorType: string, 
-  message: string, 
-  statusCode: number,
-  details?: Record<string, string[]>
-): Response {
-  const errorResponse: ErrorResponseDTO = {
-    error: errorType,
-    message,
-    details
-  };
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'type' in error) {
+      const errorResponse: ErrorResponseDTO = {
+        error: error.type,
+        message: error.message,
+        details: error.details
+      };
 
-  return new Response(JSON.stringify(errorResponse), {
-    status: statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-  });
-}
 
-/**
- * Handles different types of API errors with appropriate HTTP status codes
- */
-function handleApiError(error: any): Response {
-  // Validation errors from Zod schema
-  if (error.type === 'VALIDATION_ERROR') {
-    return createErrorResponse(
-      error.type,
-      error.message,
-      error.statusCode || 400,
-      error.details
-    );
+    // Handle unexpected errors
+    const errorResponse: ErrorResponseDTO = {
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Wystąpił nieoczekiwany błąd serwera'
+    };
+
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
-
-  // Database errors
-  if (error.type === 'DATABASE_ERROR') {
-    return createErrorResponse(
-      error.type,
-      error.message,
-      error.statusCode || 500,
-      error.details
-    );
-  }
-
-  // Not found errors (categories/groups)
-  if (error.type === 'NOT_FOUND_ERROR') {
-    return createErrorResponse(
-      error.type,
-      error.message,
-      error.statusCode || 404,
-      error.details
-    );
-  }
-
-  // Authorization errors
-  if (error.type === 'AUTHORIZATION_ERROR') {
-    return createErrorResponse(
-      error.type,
-      error.message,
-      401,
-      error.details
-    );
-  }
-
-  // Supabase auth errors
-  if (error.message?.includes('JWT')) {
-    return createErrorResponse(
-      'INVALID_TOKEN',
-      'Token autoryzacji jest nieprawidłowy lub wygasł',
-      401
-    );
-  }
-
-  // Generic server errors
-  console.error('Unhandled API error:', error);
-  return createErrorResponse(
-    'INTERNAL_SERVER_ERROR',
-    'Wystąpił nieoczekiwany błąd serwera',
-    500
-  );
 } 

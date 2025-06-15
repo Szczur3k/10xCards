@@ -3,59 +3,36 @@ import type { Database } from '../../../db/database.types';
 import type { 
   GenerateFlashcardsRequestDTO, 
   GenerateFlashcardsResponseDTO,
-  ErrorResponseDTO 
+  ErrorResponseDTO,
+  GenerateFlashcardsCommand
 } from '../../../types';
 import { AIGenerationService } from '../../../lib/services/ai-generation.service';
 import { validateGenerateFlashcardsRequest } from '../../../lib/validation/flashcard.schemas';
-import { isMockAuthEnabled, getMockUser } from '../../../lib/auth/mock-auth';
-import { supabaseClient } from '../../../db/supabase.client';
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    // 1. Authentication
-    let userId: string;
+    // Auth validation from middleware
+    const { user, isAuthenticated, supabase } = locals;
     
-    if (isMockAuthEnabled()) {
-      const mockUser = getMockUser();
-      userId = mockUser.id;
-    } else {
-      const authHeader = request.headers.get('Authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        const errorResponse: ErrorResponseDTO = {
-          error: 'UNAUTHORIZED',
-          message: 'Token autoryzacji jest wymagany'
-        };
-        return new Response(JSON.stringify(errorResponse), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-
-      if (authError || !user) {
-        const errorResponse: ErrorResponseDTO = {
-          error: 'UNAUTHORIZED',
-          message: 'Nieprawidłowy token autoryzacji'
-        };
-        return new Response(JSON.stringify(errorResponse), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      userId = user.id;
+    if (!isAuthenticated || !user) {
+      const errorResponse: ErrorResponseDTO = {
+        error: 'UNAUTHORIZED',
+        message: 'Token autoryzacji jest wymagany'
+      };
+      return new Response(JSON.stringify(errorResponse), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // 2. Parse and validate request body
+    // Parse and validate request body
     let requestData: unknown;
     try {
       requestData = await request.json();
     } catch (error) {
       const errorResponse: ErrorResponseDTO = {
         error: 'INVALID_JSON',
-        message: 'Nieprawidłowy format JSON'
+        message: 'Nieprawidłowy format JSON w żądaniu'
       };
       return new Response(JSON.stringify(errorResponse), {
         status: 400,
@@ -63,6 +40,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // Validate request data
     const validation = validateGenerateFlashcardsRequest(requestData);
     if (!validation.success) {
       return new Response(JSON.stringify(validation.error), {
@@ -73,18 +51,20 @@ export const POST: APIRoute = async ({ request }) => {
 
     const validatedData = validation.data!;
 
-    // 3. Generate or regenerate flashcards
-    const aiGenerationService = new AIGenerationService(supabaseClient);
-    
-    const result = await aiGenerationService.generateOrRegenerateFlashcards({
+    // Create generation command
+    const generationCommand: GenerateFlashcardsCommand = {
+      user_id: user.id,
       source_text: validatedData.source_text,
       source_text_id: validatedData.source_text_id,
-      user_id: userId,
       max_flashcards: validatedData.max_flashcards,
       model: validatedData.model,
-      category_ids: validatedData.category_ids,
-      group_ids: validatedData.group_ids
-    });
+      category_ids: validatedData.category_ids || [],
+      group_ids: validatedData.group_ids || []
+    };
+
+    // Initialize AI generation service
+    const aiGenerationService = new AIGenerationService(supabase);
+    const result: GenerateFlashcardsResponseDTO = await aiGenerationService.generateOrRegenerateFlashcards(generationCommand);
 
     return new Response(JSON.stringify(result), {
       status: 200,
@@ -92,50 +72,28 @@ export const POST: APIRoute = async ({ request }) => {
     });
 
   } catch (error: any) {
-    console.error('Generate flashcards error:', error);
+    console.error('POST /api/flashcards/generate error:', error);
 
-    // Handle structured errors from services
-    if (error.type && error.statusCode) {
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'type' in error) {
       const errorResponse: ErrorResponseDTO = {
         error: error.type,
         message: error.message,
         details: error.details
       };
+
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode,
+        status: error.statusCode || 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Handle timeout errors
-    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
-      const errorResponse: ErrorResponseDTO = {
-        error: 'GENERATION_TIMEOUT',
-        message: 'Generowanie fiszek przekroczyło limit czasu'
-      };
-      return new Response(JSON.stringify(errorResponse), {
-        status: 408,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Handle rate limiting (if implemented)
-    if (error.message?.includes('rate limit')) {
-      const errorResponse: ErrorResponseDTO = {
-        error: 'RATE_LIMIT_EXCEEDED',
-        message: 'Przekroczono limit żądań. Spróbuj ponownie później'
-      };
-      return new Response(JSON.stringify(errorResponse), {
-        status: 429,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Generic server error
+    // Handle unexpected errors
     const errorResponse: ErrorResponseDTO = {
       error: 'INTERNAL_SERVER_ERROR',
-      message: 'Wystąpił wewnętrzny błąd serwera'
+      message: 'Wystąpił nieoczekiwany błąd podczas generowania fiszek'
     };
+
     return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

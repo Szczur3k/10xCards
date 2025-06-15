@@ -59,7 +59,6 @@ export interface SigninRequestDTO {
 export interface UserDTO {
   id: string;
   email: string;
-  email_verified: boolean;
   role: UserRole;
   created_at: string;
 }

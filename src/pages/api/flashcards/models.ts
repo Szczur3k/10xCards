@@ -1,15 +1,13 @@
 import type { APIContext } from 'astro';
 import type { ModelsResponseDTO, GetAvailableModelsCommand, ErrorResponseDTO } from '../../../types';
 import { AIModelService } from '../../../lib/services/ai-model.service';
-import { isMockAuthEnabled, getMockUser } from '../../../lib/auth/mock-auth';
-import { supabaseClient } from '../../../db/supabase.client';
 
 /**
  * GET /api/flashcards/models
  * Returns available AI models for flashcard generation
  * 
  * Features:
- * - Mock authentication support for development
+ * - Real authentication from middleware
  * - Real-time API key availability checking
  * - Intelligent model selection strategy
  * - Response caching (5 minutes TTL)
@@ -17,32 +15,20 @@ import { supabaseClient } from '../../../db/supabase.client';
  */
 export async function GET(context: APIContext): Promise<Response> {
   try {
-    // Auth validation - support both mock and real auth
-    let user: any;
+    // Auth validation from middleware
+    const { user, isAuthenticated } = context.locals;
     
-    if (isMockAuthEnabled()) {
-      console.log('🔧 Using mock authentication for models endpoint');
-      user = getMockUser();
-    } else {
-      // Real Supabase auth
-      const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser();
-      
-      if (authError || !authUser) {
-        return new Response(
-          JSON.stringify({
-            error: 'UNAUTHORIZED',
-            message: 'Token autoryzacji jest wymagany lub nieprawidłowy'
-          } as ErrorResponseDTO),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-      
-      user = authUser;
+    if (!isAuthenticated || !user) {
+      return new Response(
+        JSON.stringify({
+          error: 'UNAUTHORIZED',
+          message: 'Token autoryzacji jest wymagany lub nieprawidłowy'
+        } as ErrorResponseDTO),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Initialize service and create command
@@ -54,93 +40,44 @@ export async function GET(context: APIContext): Promise<Response> {
     // Get available models
     const modelsResponse: ModelsResponseDTO = await aiModelService.getAvailableModels(command);
 
-    // Success response with caching headers
-    return new Response(
-      JSON.stringify(modelsResponse),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=300', // 5 minutes cache
-          'Vary': 'Authorization'
-        }
+    // Return success response with caching headers
+    return new Response(JSON.stringify(modelsResponse), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300', // 5 minutes cache
+        'X-Total-Models': modelsResponse.stats.total_models.toString(),
+        'X-Available-Models': modelsResponse.stats.available_models.toString()
       }
-    );
+    });
 
   } catch (error: any) {
     console.error('GET /api/flashcards/models error:', error);
 
-    // Handle structured errors from service layer
-    if (error.type && error.statusCode) {
+    // Handle service-specific errors
+    if (error && typeof error === 'object' && 'type' in error) {
       const errorResponse: ErrorResponseDTO = {
         error: error.type,
         message: error.message,
         details: error.details
       };
 
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: error.statusCode,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Handle authentication errors
-    if (error.message?.includes('auth') || error.message?.includes('token')) {
-      const errorResponse: ErrorResponseDTO = {
-        error: 'UNAUTHORIZED',
-        message: 'Token autoryzacji jest wymagany lub nieprawidłowy'
-      };
-
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: 401,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-    }
-
-    // Handle environment/configuration errors
-    if (error.message?.includes('environment') || error.message?.includes('config')) {
-      const errorResponse: ErrorResponseDTO = {
-        error: 'CONFIGURATION_ERROR',
-        message: 'Błąd konfiguracji modeli AI',
-        details: { configuration: ['Nieprawidłowa konfiguracja modeli w systemie'] }
-      };
-
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-    }
-
-    // Generic server error
+    // Handle unexpected errors
     const errorResponse: ErrorResponseDTO = {
       error: 'INTERNAL_SERVER_ERROR',
-      message: 'Wystąpił wewnętrzny błąd serwera'
+      message: 'Wystąpił nieoczekiwany błąd podczas pobierania modeli AI'
     };
 
-    return new Response(
-      JSON.stringify(errorResponse),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 

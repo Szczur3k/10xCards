@@ -1,43 +1,47 @@
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "../db/database.types.ts";
-import { createMockSupabaseClient, isMockAuthEnabled, getMockUser, createMockAuthResponse } from "../lib/auth/mock-auth";
+import type { AstroCookies } from 'astro';
+import { createServerClient, type CookieOptionsWithName } from '@supabase/ssr';
+import type { Database } from './database.types';
 
-// Check if we're in browser (client-side)
-const isBrowser = typeof window !== 'undefined';
+export const cookieOptions: CookieOptionsWithName = {
+  path: '/',
+  secure: import.meta.env.PROD,
+  httpOnly: true,
+  sameSite: 'lax',
+  maxAge: 60 * 60 * 24 * 7, // 7 days
+};
 
-// Get environment variables - use PUBLIC_ versions for client-side
-const supabaseUrl = isBrowser 
-  ? import.meta.env.PUBLIC_SUPABASE_URL 
-  : import.meta.env.SUPABASE_URL;
+function parseCookieHeader(cookieHeader: string): { name: string; value: string }[] {
+  if (!cookieHeader) return [];
   
-const supabaseAnonKey = isBrowser 
-  ? import.meta.env.PUBLIC_SUPABASE_KEY 
-  : import.meta.env.SUPABASE_KEY;
-
-// Create appropriate client
-let supabaseClient: any;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.log('🔧 Missing Supabase credentials, using full mock client');
-  supabaseClient = createMockSupabaseClient();
-} else if (isMockAuthEnabled()) {
-  console.log('🔧 Using real database with mock authentication');
-  // Create real Supabase client but override auth methods
-  const realClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
-  
-  // Create hybrid client: real database + mock auth
-  supabaseClient = Object.create(realClient);
-  supabaseClient.auth = {
-    ...realClient.auth,
-    getUser: async () => {
-      console.log('🔧 Mock auth: returning mock user');
-      const mockUser = getMockUser();
-      return createMockAuthResponse(mockUser);
-    }
-  };
-} else {
-  console.log('🔧 Using real Supabase client with real authentication');
-  supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey);
+  return cookieHeader.split(';').map((cookie) => {
+    const [name, ...rest] = cookie.trim().split('=');
+    return { name, value: rest.join('=') };
+  });
 }
 
-export { supabaseClient };
+export const createSupabaseServerClient = (context: {
+  headers: Headers;
+  cookies: AstroCookies;
+}) => {
+  const supabase = createServerClient<Database>(
+    import.meta.env.SUPABASE_URL,
+    import.meta.env.SUPABASE_KEY,
+    {
+      cookies: {
+        getAll() {
+          return parseCookieHeader(context.headers.get('Cookie') ?? '');
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            context.cookies.set(name, value, { ...cookieOptions, ...options }),
+          );
+        },
+      },
+    },
+  );
+
+  return supabase;
+};
+
+// Legacy export for backward compatibility during migration
+export const supabaseClient = createSupabaseServerClient;

@@ -6,28 +6,24 @@ import type {
   UserDTO,
   SessionDTO
 } from '../../types';
-import { supabaseClient } from '../../db/supabase.client';
-import { isMockAuthEnabled, getMockUser } from '../auth/mock-auth';
+import type { AstroCookies } from 'astro';
+import { createSupabaseServerClient } from '../../db/supabase.client';
 
 /**
- * AuthService - handles authentication operations with dual strategy
- * - Mock auth for development/testing
- * - Supabase Auth for production
+ * AuthService - handles authentication operations with Supabase SSR
  */
 export class AuthService {
-  private supabase = supabaseClient;
+  private supabase: any;
+
+  constructor(context: { headers: Headers; cookies: AstroCookies }) {
+    this.supabase = createSupabaseServerClient(context);
+  }
 
   /**
    * Register new user
    */
   async signup(command: SignupCommand): Promise<AuthResponseDTO> {
     try {
-      // Mock auth for development
-      if (isMockAuthEnabled()) {
-        return this.mockSignup(command);
-      }
-
-      // Real Supabase auth
       const { data, error } = await this.supabase.auth.signUp({
         email: command.email,
         password: command.password,
@@ -50,22 +46,7 @@ export class AuthService {
         };
       }
 
-      // Get user profile from public.users table
-      const userProfile = await this.getUserProfile(data.user.id);
-
-      return {
-        user: {
-          id: data.user.id,
-          email: data.user.email!,
-          email_verified: data.user.email_confirmed_at !== null,
-          role: userProfile?.role || 'user',
-          created_at: data.user.created_at
-        },
-        session: {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token
-        }
-      };
+      return this.formatAuthResponse(data);
 
     } catch (error) {
       if (error && typeof error === 'object' && 'type' in error) {
@@ -86,12 +67,6 @@ export class AuthService {
    */
   async signin(command: SigninCommand): Promise<AuthResponseDTO> {
     try {
-      // Mock auth for development
-      if (isMockAuthEnabled()) {
-        return this.mockSignin(command);
-      }
-
-      // Real Supabase auth
       const { data, error } = await this.supabase.auth.signInWithPassword({
         email: command.email,
         password: command.password
@@ -109,22 +84,7 @@ export class AuthService {
         };
       }
 
-      // Get user profile from public.users table
-      const userProfile = await this.getUserProfile(data.user.id);
-
-      return {
-        user: {
-          id: data.user.id,
-          email: data.user.email!,
-          email_verified: data.user.email_confirmed_at !== null,
-          role: userProfile?.role || 'user',
-          created_at: data.user.created_at
-        },
-        session: {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token
-        }
-      };
+      return this.formatAuthResponse(data);
 
     } catch (error) {
       if (error && typeof error === 'object' && 'type' in error) {
@@ -145,12 +105,6 @@ export class AuthService {
    */
   async signout(command: SignoutCommand): Promise<void> {
     try {
-      // Mock auth for development - no actual signout needed
-      if (isMockAuthEnabled()) {
-        return this.mockSignout(command);
-      }
-
-      // Real Supabase auth
       const { error } = await this.supabase.auth.signOut();
 
       if (error) {
@@ -172,181 +126,191 @@ export class AuthService {
   }
 
   /**
-   * Get user profile from public.users table
+   * Get current user session
    */
-  private async getUserProfile(userId: string) {
+  async getCurrentUser(): Promise<UserDTO | null> {
     try {
-      const { data, error } = await this.supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .single();
+      const { data: { user }, error } = await this.supabase.auth.getUser();
 
       if (error) {
-        console.warn('Failed to get user profile:', error);
+        console.error('Get user error:', error);
         return null;
       }
 
-      return data;
+      if (!user) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        email: user.email!,
+        role: 'user', // Default role, could be enhanced with user profile lookup
+        created_at: user.created_at
+      };
+
     } catch (error) {
-      console.warn('Error getting user profile:', error);
+      console.error('Get current user error:', error);
       return null;
     }
   }
 
   /**
-   * Mock signup for development
+   * Refresh user session
    */
-  private async mockSignup(command: SignupCommand): Promise<AuthResponseDTO> {
-    // Simulate email already exists check
-    if (command.email === 'existing@example.com') {
-      throw {
-        type: 'EMAIL_ALREADY_EXISTS',
-        message: 'Użytkownik z tym adresem email już istnieje',
-        statusCode: 409
-      };
+  async refreshSession(): Promise<AuthResponseDTO | null> {
+    try {
+      const { data, error } = await this.supabase.auth.refreshSession();
+
+      if (error) {
+        throw this.mapSupabaseAuthError(error);
+      }
+
+      if (!data.user || !data.session) {
+        return null;
+      }
+
+      return this.formatAuthResponse(data);
+
+    } catch (error) {
+      console.error('Refresh session error:', error);
+      return null;
     }
+  }
 
-    // Simulate delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const mockUser = getMockUser();
-    const mockToken = this.generateMockJWT(mockUser.id);
-
+  /**
+   * Format Supabase auth response to our DTO format
+   */
+  private formatAuthResponse(data: any): AuthResponseDTO {
     return {
       user: {
-        id: mockUser.id,
-        email: command.email,
-        email_verified: false,
-        role: 'user',
-        created_at: new Date().toISOString()
+        id: data.user.id,
+        email: data.user.email!,
+        role: 'user', // Default role
+        created_at: data.user.created_at
       },
       session: {
-        access_token: mockToken,
-        refresh_token: mockToken + '_refresh'
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
       }
     };
   }
 
   /**
-   * Mock signin for development
+   * Send password reset email
    */
-  private async mockSignin(command: SigninCommand): Promise<AuthResponseDTO> {
-    // Simulate invalid credentials
-    if (command.email === 'invalid@example.com' || command.password === 'wrongpassword') {
-      throw {
-        type: 'INVALID_CREDENTIALS',
-        message: 'Nieprawidłowy email lub hasło',
-        statusCode: 401
-      };
-    }
+  async forgotPassword(command: { email: string }): Promise<void> {
+    try {
+      const { error } = await this.supabase.auth.resetPasswordForEmail(command.email, {
+        redirectTo: `${this.getBaseUrl()}/reset-password`
+      });
 
-    // Simulate delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const mockUser = getMockUser();
-    const mockToken = this.generateMockJWT(mockUser.id);
-
-    return {
-      user: {
-        id: mockUser.id,
-        email: command.email,
-        email_verified: true,
-        role: mockUser.role,
-        created_at: mockUser.created_at
-      },
-      session: {
-        access_token: mockToken,
-        refresh_token: mockToken + '_refresh'
+      if (error) {
+        // For security, we don't throw errors that reveal if email exists
+        // Just log the error and continue
+        console.error('Forgot password error:', error);
       }
-    };
+    } catch (error) {
+      // For security, we don't throw errors that reveal if email exists
+      console.error('Forgot password error:', error);
+    }
   }
 
   /**
-   * Mock signout for development
+   * Reset password with token
    */
-  private async mockSignout(command: SignoutCommand): Promise<void> {
-    // Validate mock token format
-    if (!command.accessToken.includes('mock_jwt_')) {
+  async resetPassword(command: { token: string; password: string }): Promise<AuthResponseDTO> {
+    try {
+      // Note: In Supabase, password reset is handled via URL parameters
+      // This method would be used after user clicks the reset link
+      const { data, error } = await this.supabase.auth.updateUser({
+        password: command.password
+      });
+
+      if (error) {
+        throw this.mapSupabaseAuthError(error);
+      }
+
+      if (!data.user) {
+        throw {
+          type: 'RESET_PASSWORD_FAILED',
+          message: 'Nie udało się zresetować hasła',
+          statusCode: 400
+        };
+      }
+
+      return this.formatAuthResponse(data);
+    } catch (error) {
+      if (error && typeof error === 'object' && 'type' in error) {
+        throw error;
+      }
+      
+      console.error('Reset password error:', error);
       throw {
-        type: 'INVALID_TOKEN',
-        message: 'Token autoryzacji jest nieprawidłowy lub wygasł',
-        statusCode: 401
+        type: 'INTERNAL_SERVER_ERROR',
+        message: 'Wystąpił nieoczekiwany błąd podczas resetowania hasła',
+        statusCode: 500
       };
     }
-
-    // Simulate delay
-    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
   /**
-   * Generate mock JWT token for development
+   * Get base URL for redirects
    */
-  private generateMockJWT(userId: string): string {
-    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-    const payload = btoa(JSON.stringify({ 
-      sub: userId, 
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour
-    }));
-    const signature = 'mock_signature';
-    
-    return `mock_jwt_${header}.${payload}.${signature}`;
+  private getBaseUrl(): string {
+    // In production, this should come from environment variables
+    return typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3001';
   }
 
   /**
-   * Map Supabase auth errors to standardized error format
+   * Map Supabase auth errors to our error format
    */
   private mapSupabaseAuthError(error: any) {
-    const message = error.message?.toLowerCase() || '';
+    console.error('Supabase auth error:', error);
 
-    // Email already registered
-    if (message.includes('user already registered') || 
-        message.includes('email already registered')) {
-      return {
-        type: 'EMAIL_ALREADY_EXISTS',
-        message: 'Użytkownik z tym adresem email już istnieje',
-        statusCode: 409
-      };
+    switch (error.message) {
+      case 'Invalid login credentials':
+        return {
+          type: 'INVALID_CREDENTIALS',
+          message: 'Nieprawidłowy email lub hasło',
+          statusCode: 401
+        };
+      
+      case 'User already registered':
+        return {
+          type: 'EMAIL_ALREADY_EXISTS',
+          message: 'Konto z tym adresem email już istnieje',
+          statusCode: 409
+        };
+      
+      case 'Password should be at least 6 characters':
+        return {
+          type: 'WEAK_PASSWORD',
+          message: 'Hasło musi mieć co najmniej 6 znaków',
+          statusCode: 400
+        };
+      
+      case 'Unable to validate email address: invalid format':
+        return {
+          type: 'INVALID_EMAIL',
+          message: 'Nieprawidłowy format adresu email',
+          statusCode: 400
+        };
+      
+      case 'Email not confirmed':
+        return {
+          type: 'EMAIL_NOT_VERIFIED',
+          message: 'Potwierdź swój adres email przed logowaniem',
+          statusCode: 403
+        };
+      
+      default:
+        return {
+          type: 'AUTH_ERROR',
+          message: error.message || 'Wystąpił błąd podczas uwierzytelniania',
+          statusCode: 400
+        };
     }
-
-    // Invalid credentials
-    if (message.includes('invalid login credentials') ||
-        message.includes('email not confirmed') ||
-        message.includes('invalid email or password')) {
-      return {
-        type: 'INVALID_CREDENTIALS',
-        message: 'Nieprawidłowy email lub hasło',
-        statusCode: 401
-      };
-    }
-
-    // Rate limiting
-    if (message.includes('too many requests') ||
-        message.includes('rate limit')) {
-      return {
-        type: 'RATE_LIMIT_EXCEEDED',
-        message: 'Zbyt wiele prób logowania. Spróbuj ponownie za chwilę',
-        statusCode: 429
-      };
-    }
-
-    // Invalid token
-    if (message.includes('invalid token') ||
-        message.includes('jwt expired') ||
-        message.includes('token expired')) {
-      return {
-        type: 'INVALID_TOKEN',
-        message: 'Token autoryzacji jest nieprawidłowy lub wygasł',
-        statusCode: 401
-      };
-    }
-
-    // Default server error
-    return {
-      type: 'INTERNAL_SERVER_ERROR',
-      message: 'Wystąpił nieoczekiwany błąd serwera',
-      statusCode: 500
-    };
   }
 } 

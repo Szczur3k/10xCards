@@ -1,22 +1,21 @@
 import type { APIRoute } from 'astro';
-import type { SigninRequestDTO, AuthResponseDTO, ErrorResponseDTO } from '../../../types';
+import type { ErrorResponseDTO } from '../../../types';
 import { AuthService } from '../../../lib/services/auth.service';
-import { validateSigninRequest } from '../../../lib/validation/auth.schemas';
+import { validateForgotPasswordRequest } from '../../../lib/validation/auth.schemas';
 import { RateLimiter, rateLimitConfigs, createRateLimitError } from '../../../lib/middleware/rate-limit';
 import { validateCSRF } from '../../../lib/middleware/csrf';
 
 export const prerender = false;
 
 /**
- * POST /api/auth/signin
- * Sign in existing user with rate limiting and CSRF protection
+ * POST /api/auth/forgot-password
+ * Send password reset email with rate limiting and CSRF protection
  */
 export const POST: APIRoute = async ({ request, cookies }) => {
-  const rateLimiter = new RateLimiter({ headers: request.headers, cookies });
-  
   try {
-    // Rate limiting check
-    const rateLimit = await rateLimiter.checkLimit(request, rateLimitConfigs.auth);
+    // Rate limiting check - stricter for forgot password
+    const rateLimiter = new RateLimiter({ headers: request.headers, cookies });
+    const rateLimit = await rateLimiter.checkLimit(request, rateLimitConfigs.forgotPassword);
     
     if (!rateLimit.allowed) {
       const rateLimitError = createRateLimitError(rateLimit.resetTime);
@@ -36,7 +35,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
 
     // CSRF validation
-    const csrfValidation = await validateCSRF(request, cookies, '/api/auth/signin');
+    const csrfValidation = await validateCSRF(request, cookies, '/api/auth/forgot-password');
     if (!csrfValidation.valid) {
       return new Response(
         JSON.stringify({
@@ -68,36 +67,36 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
 
     // Validate request data
-    const validatedData = await validateSigninRequest(requestData);
+    const validatedData = await validateForgotPasswordRequest(requestData);
 
-    // Create signin command
-    const signinCommand = {
-      email: validatedData.email,
-      password: validatedData.password
+    // Create forgot password command
+    const forgotPasswordCommand = {
+      email: validatedData.email
     };
 
-    // Execute signin through service
+    // Execute forgot password through service
     const authService = new AuthService({ headers: request.headers, cookies });
-    const result = await authService.signin(signinCommand);
+    await authService.forgotPassword(forgotPasswordCommand);
 
-    // Clear rate limit records on successful login
-    await rateLimiter.clearSuccessfulAttempt(request, rateLimitConfigs.auth);
-
-    // Return success response with rate limit headers
+    // Always return success to prevent email enumeration attacks
+    // Even if email doesn't exist, we return success
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        message: 'Jeśli podany adres email istnieje w naszej bazie, otrzymasz link do resetowania hasła.',
+        success: true
+      }),
       {
         status: 200,
         headers: { 
           'Content-Type': 'application/json',
-          'X-RateLimit-Remaining': rateLimitConfigs.auth.maxAttempts.toString(),
-          'X-RateLimit-Reset': (Date.now() + rateLimitConfigs.auth.windowMs).toString()
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+          'X-RateLimit-Reset': rateLimit.resetTime.toString()
         }
       }
     );
 
   } catch (error: any) {
-    console.error('Signin endpoint error:', error);
+    console.error('Forgot password endpoint error:', error);
 
     // Handle structured errors from validation or service
     if (error && typeof error === 'object' && 'type' in error) {
@@ -116,16 +115,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // Handle unexpected errors
-    const errorResponse: ErrorResponseDTO = {
-      error: 'INTERNAL_SERVER_ERROR',
-      message: 'Wystąpił nieoczekiwany błąd serwera'
-    };
-
+    // For security, always return generic success message
+    // This prevents email enumeration attacks
     return new Response(
-      JSON.stringify(errorResponse),
+      JSON.stringify({
+        message: 'Jeśli podany adres email istnieje w naszej bazie, otrzymasz link do resetowania hasła.',
+        success: true
+      }),
       {
-        status: 500,
+        status: 200,
         headers: { 'Content-Type': 'application/json' }
       }
     );

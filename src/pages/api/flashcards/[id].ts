@@ -1,7 +1,6 @@
 import type { APIContext } from 'astro';
 import { FlashcardService } from '../../../lib/services/flashcard.service';
 import { validateUpdateFlashcardRequest, validateUUID } from '../../../lib/validation/flashcard.schemas';
-import { isMockAuthEnabled, getMockUser, createMockSupabaseClient } from '../../../lib/auth/mock-auth';
 import type { 
   UpdateFlashcardCommand, 
   ErrorResponseDTO,
@@ -12,145 +11,146 @@ import type {
 export const prerender = false;
 
 /**
- * GET /api/flashcards/{id}
- * Gets a single flashcard by ID for the authenticated user
- * Requires authentication (mock or real)
+ * GET /api/flashcards/[id]
+ * Returns a single flashcard by ID for the authenticated user
  */
 export async function GET(context: APIContext): Promise<Response> {
   try {
-    // 1. Get authenticated user (mock or real)
-    let supabase: any;
-    let user: any;
-
-    if (isMockAuthEnabled()) {
-      console.log('🔧 Using mock authentication for GET single flashcard');
-      supabase = createMockSupabaseClient();
-      user = getMockUser();
-    } else {
-      // Real Supabase authentication
-      supabase = context.locals.supabase;
-      if (!supabase) {
-        return createErrorResponse(
-          'AUTHORIZATION_ERROR',
-          'Supabase client not available',
-          401
-        );
-      }
-
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        return createErrorResponse(
-          'UNAUTHORIZED',
-          'Token autoryzacji jest wymagany lub nieprawidłowy',
-          401
-        );
-      }
-      
-      user = authUser;
+    // Auth validation from middleware
+    const { user, isAuthenticated, supabase } = context.locals;
+    
+    if (!isAuthenticated || !user) {
+      return new Response(
+        JSON.stringify({
+          error: 'UNAUTHORIZED',
+          message: 'Wymagane jest zalogowanie'
+        } as ErrorResponseDTO),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // 2. Validate and extract flashcard ID from URL
-    const flashcardId = context.params.id as string;
+    // Validate flashcard ID parameter
+    const flashcardId = context.params.id;
     if (!flashcardId) {
-      return createErrorResponse(
-        'VALIDATION_ERROR',
-        'ID fiszki jest wymagane',
-        400,
-        { id: ['Brak ID fiszki w URL'] }
+      return new Response(
+        JSON.stringify({
+          error: 'INVALID_PARAMETER',
+          message: 'ID fiszki jest wymagane'
+        } as ErrorResponseDTO),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
     // Validate UUID format
-    validateUUID(flashcardId, 'flashcard_id');
+    await validateUUID(flashcardId);
 
-    // 3. Execute business logic through service
+    // Initialize service and get flashcard
     const flashcardService = new FlashcardService(supabase);
-    const flashcard = await flashcardService.getById(flashcardId, user.id);
+    const result: FlashcardDTO = await flashcardService.getById(flashcardId, user.id);
 
-    // 4. Return success response
-    return new Response(JSON.stringify(flashcard), {
+    return new Response(JSON.stringify(result), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error: any) {
-    console.error('GET /api/flashcards/{id} error:', error);
-    return handleApiError(error);
+    console.error('GET /api/flashcards/[id] error:', error);
+
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'type' in error) {
+      const errorResponse: ErrorResponseDTO = {
+        error: error.type,
+        message: error.message,
+        details: error.details
+      };
+
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Handle unexpected errors
+    const errorResponse: ErrorResponseDTO = {
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Wystąpił nieoczekiwany błąd serwera'
+    };
+
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 /**
- * PUT /api/flashcards/{id}
+ * PUT /api/flashcards/[id]
  * Updates an existing flashcard for the authenticated user
- * Requires authentication (mock or real)
  */
 export async function PUT(context: APIContext): Promise<Response> {
   try {
-    // 1. Get authenticated user (mock or real)
-    let supabase: any;
-    let user: any;
-
-    if (isMockAuthEnabled()) {
-      console.log('🔧 Using mock authentication for PUT flashcard');
-      supabase = createMockSupabaseClient();
-      user = getMockUser();
-    } else {
-      // Real Supabase authentication
-      supabase = context.locals.supabase;
-      if (!supabase) {
-        return createErrorResponse(
-          'AUTHORIZATION_ERROR',
-          'Supabase client not available',
-          401
-        );
-      }
-
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        return createErrorResponse(
-          'UNAUTHORIZED',
-          'Token autoryzacji jest wymagany lub nieprawidłowy',
-          401
-        );
-      }
-      
-      user = authUser;
+    // Auth validation from middleware
+    const { user, isAuthenticated, supabase } = context.locals;
+    
+    if (!isAuthenticated || !user) {
+      return new Response(
+        JSON.stringify({
+          error: 'UNAUTHORIZED',
+          message: 'Wymagane jest zalogowanie'
+        } as ErrorResponseDTO),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // 2. Validate and extract flashcard ID from URL
-    const flashcardId = context.params.id as string;
+    // Validate flashcard ID parameter
+    const flashcardId = context.params.id;
     if (!flashcardId) {
-      return createErrorResponse(
-        'VALIDATION_ERROR',
-        'ID fiszki jest wymagane',
-        400,
-        { id: ['Brak ID fiszki w URL'] }
+      return new Response(
+        JSON.stringify({
+          error: 'INVALID_PARAMETER',
+          message: 'ID fiszki jest wymagane'
+        } as ErrorResponseDTO),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
     // Validate UUID format
-    validateUUID(flashcardId, 'flashcard_id');
+    await validateUUID(flashcardId);
 
-    // 3. Parse and validate request body
-    const requestBody = await context.request.json().catch(() => null);
-    if (!requestBody) {
-      return createErrorResponse(
-        'INVALID_REQUEST',
-        'Treść żądania jest wymagana',
-        400
+    // Parse request body
+    let requestData: unknown;
+    try {
+      requestData = await context.request.json();
+    } catch (error) {
+      return new Response(
+        JSON.stringify({
+          error: 'INVALID_JSON',
+          message: 'Nieprawidłowy format JSON w żądaniu'
+        } as ErrorResponseDTO),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
-    // 4. Validate input data using Zod schema
-    const validatedData = await validateUpdateFlashcardRequest(requestBody);
+    // Validate request data
+    const validatedData = await validateUpdateFlashcardRequest(requestData);
 
-    // 5. Create command for service layer
-    const command: UpdateFlashcardCommand = {
+    // Create update command
+    const updateCommand: UpdateFlashcardCommand = {
       id: flashcardId,
       user_id: user.id,
       front: validatedData.front,
@@ -160,159 +160,123 @@ export async function PUT(context: APIContext): Promise<Response> {
       group_ids: validatedData.group_ids
     };
 
-    // 6. Execute business logic through service
+    // Initialize service and update flashcard
     const flashcardService = new FlashcardService(supabase);
-    const updatedFlashcard = await flashcardService.updateFlashcard(command);
+    const result: FlashcardDTO = await flashcardService.updateFlashcard(updateCommand);
 
-    // 7. Return success response
-    return new Response(JSON.stringify(updatedFlashcard), {
+    return new Response(JSON.stringify(result), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error: any) {
-    console.error('PUT /api/flashcards/{id} error:', error);
-    return handleApiError(error);
+    console.error('PUT /api/flashcards/[id] error:', error);
+
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'type' in error) {
+      const errorResponse: ErrorResponseDTO = {
+        error: error.type,
+        message: error.message,
+        details: error.details
+      };
+
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Handle unexpected errors
+    const errorResponse: ErrorResponseDTO = {
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Wystąpił nieoczekiwany błąd serwera'
+    };
+
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 /**
- * DELETE /api/flashcards/{id}
+ * DELETE /api/flashcards/[id]
  * Deletes a flashcard for the authenticated user
- * Requires authentication (mock or real)
  */
 export async function DELETE(context: APIContext): Promise<Response> {
   try {
-    // 1. Get authenticated user (mock or real)
-    let supabase: any;
-    let user: any;
-
-    if (isMockAuthEnabled()) {
-      console.log('🔧 Using mock authentication for DELETE flashcard');
-      supabase = createMockSupabaseClient();
-      user = getMockUser();
-    } else {
-      // Real Supabase authentication
-      supabase = context.locals.supabase;
-      if (!supabase) {
-        return createErrorResponse(
-          'AUTHORIZATION_ERROR',
-          'Supabase client not available',
-          401
-        );
-      }
-
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        return createErrorResponse(
-          'UNAUTHORIZED',
-          'Token autoryzacji jest wymagany lub nieprawidłowy',
-          401
-        );
-      }
-      
-      user = authUser;
+    // Auth validation from middleware
+    const { user, isAuthenticated, supabase } = context.locals;
+    
+    if (!isAuthenticated || !user) {
+      return new Response(
+        JSON.stringify({
+          error: 'UNAUTHORIZED',
+          message: 'Wymagane jest zalogowanie'
+        } as ErrorResponseDTO),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // 2. Validate and extract flashcard ID from URL
-    const flashcardId = context.params.id as string;
+    // Validate flashcard ID parameter
+    const flashcardId = context.params.id;
     if (!flashcardId) {
-      return createErrorResponse(
-        'VALIDATION_ERROR',
-        'ID fiszki jest wymagane',
-        400,
-        { id: ['Brak ID fiszki w URL'] }
+      return new Response(
+        JSON.stringify({
+          error: 'INVALID_PARAMETER',
+          message: 'ID fiszki jest wymagane'
+        } as ErrorResponseDTO),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
     }
 
     // Validate UUID format
-    validateUUID(flashcardId, 'flashcard_id');
+    await validateUUID(flashcardId);
 
-    // 3. Execute business logic through service
+    // Initialize service and delete flashcard
     const flashcardService = new FlashcardService(supabase);
     await flashcardService.deleteFlashcard(flashcardId, user.id);
 
-    // 4. Return success response (204 No Content)
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Cache-Control': 'no-cache'
+    return new Response(
+      JSON.stringify({ message: 'Fiszka została usunięta' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
       }
-    });
+    );
 
   } catch (error: any) {
-    console.error('DELETE /api/flashcards/{id} error:', error);
-    return handleApiError(error);
-  }
-}
+    console.error('DELETE /api/flashcards/[id] error:', error);
 
-/**
- * Creates standardized error response
- */
-function createErrorResponse(
-  errorType: string, 
-  message: string, 
-  statusCode: number,
-  details?: Record<string, string[]>
-): Response {
-  const errorResponse: ErrorResponseDTO = {
-    error: errorType,
-    message,
-    details
-  };
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'type' in error) {
+      const errorResponse: ErrorResponseDTO = {
+        error: error.type,
+        message: error.message,
+        details: error.details
+      };
 
-  return new Response(JSON.stringify(errorResponse), {
-    status: statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-  });
-}
 
-/**
- * Handles different types of API errors with appropriate HTTP status codes
- */
-function handleApiError(error: any): Response {
-  // Validation errors from Zod schema
-  if (error.type === 'VALIDATION_ERROR') {
-    return createErrorResponse(
-      error.type,
-      error.message,
-      error.statusCode || 400,
-      error.details
-    );
+    // Handle unexpected errors
+    const errorResponse: ErrorResponseDTO = {
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Wystąpił nieoczekiwany błąd serwera'
+    };
+
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
-
-  // Not found errors
-  if (error.type === 'NOT_FOUND_ERROR') {
-    return createErrorResponse(
-      error.type,
-      error.message,
-      error.statusCode || 404,
-      error.details
-    );
-  }
-
-  // Database errors
-  if (error.type === 'DATABASE_ERROR') {
-    return createErrorResponse(
-      error.type,
-      error.message,
-      error.statusCode || 500,
-      error.details
-    );
-  }
-
-  // Generic server error for unhandled cases
-  console.error('Unhandled API error:', error);
-  return createErrorResponse(
-    'INTERNAL_SERVER_ERROR',
-    'Wystąpił nieoczekiwany błąd serwera',
-    500
-  );
 } 

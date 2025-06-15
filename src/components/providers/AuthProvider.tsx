@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { UserDTO } from '../../types';
-import { AuthService } from '../../lib/services/auth.service';
-import { isMockAuthEnabled, getMockUser } from '../../lib/auth/mock-auth';
 
 interface AuthContextType {
   user: UserDTO | null;
@@ -12,41 +10,34 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
 interface AuthProviderProps {
   children: ReactNode;
 }
 
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
 /**
  * AuthProvider - Provides authentication context to the application
- * Uses existing AuthService with dual strategy (mock/real auth)
- * Integrates with project's mock authentication system
+ * Uses real authentication state from server-side middleware
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<UserDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const authService = typeof window !== 'undefined' ? new AuthService() : null;
 
   const isAuthenticated = !!user;
 
   useEffect(() => {
-    // Initialize user session on mount
+    // Initialize user session from server-side data
     const initializeAuth = async () => {
       try {
-        if (isMockAuthEnabled()) {
-          // Use existing mock system
-          const mockUser = getMockUser();
-          setUser({
-            id: mockUser.id,
-            email: mockUser.email,
-            email_verified: true,
-            role: mockUser.role,
-            created_at: mockUser.created_at
-          });
+        // Check if user data is available from server-side rendering
+        // This will be set by middleware in Astro.locals
+        const userDataElement = document.getElementById('user-data');
+        if (userDataElement) {
+          const userData = JSON.parse(userDataElement.textContent || 'null');
+          setUser(userData);
         } else {
-          // TODO: Check for existing real session
-          // For now, no auto-login for real auth
+          // No user data means not authenticated
           setUser(null);
         }
       } catch (error) {
@@ -60,46 +51,57 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
+  const login = async (email: string, password: string): Promise<void> => {
     try {
-      if (!authService) throw new Error('Auth service not available');
-      const authResponse = await authService.signin({ email, password });
-      setUser(authResponse.user);
-      
-      // Store session data if needed
-      if (authResponse.session) {
-        localStorage.setItem('access_token', authResponse.session.access_token);
-        localStorage.setItem('refresh_token', authResponse.session.refresh_token);
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
       }
+
+      const data = await response.json();
+      setUser(data.user);
+      
+      // Redirect will be handled by the calling component
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const logout = async () => {
-    setIsLoading(true);
+  const logout = async (): Promise<void> => {
     try {
-      const accessToken = localStorage.getItem('access_token');
-      if (accessToken && authService) {
-        await authService.signout({ accessToken });
+      const response = await fetch('/api/auth/signout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      // Don't throw on logout errors, just log them
+      if (!response.ok) {
+        console.warn('Logout API call failed, but continuing with local cleanup');
       }
       
       setUser(null);
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      
+      // Redirect to login page after successful logout
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout failed:', error);
-      // Still clear local state even if API call fails
+      // Still clear local state even if API call failed
       setUser(null);
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
-      throw error;
-    } finally {
-      setIsLoading(false);
+      window.location.href = '/login';
     }
   };
 
@@ -108,7 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAuthenticated,
     login,
-    logout
+    logout,
   };
 
   return (
@@ -118,11 +120,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 }
 
-/**
- * useAuth - Hook to access authentication context
- * Throws error if used outside AuthProvider
- */
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

@@ -7,12 +7,14 @@ declare global {
   namespace App {
     interface Locals {
       supabase: SupabaseClient<Database>;
-      user: {
-        id: string;
-        email: string;
-        role: string;
-      } | null;
+              user: {
+          id: string;
+          email: string;
+          role: string;
+          created_at: string;
+        } | null;
       isAuthenticated: boolean;
+      csrfToken?: string;
     }
   }
 }

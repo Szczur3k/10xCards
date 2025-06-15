@@ -1,19 +1,21 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../db/database.types';
 import type { 
-  SourceTextListResponseDTO, 
+  CreateSourceTextCommand,
+  SourceTextDTO,
+  SourceTextListResponseDTO,
   SourceTextDetailDTO,
   GetSourceTextsCommand,
   GetSourceTextByIdCommand,
-  SourceTextDTO,
   PaginationDTO
 } from '../../types';
-import { supabaseClient } from '../../db/supabase.client';
-import { isMockAuthEnabled, createMockSupabaseClient } from '../auth/mock-auth';
 
 /**
  * Service for managing source texts operations
  * Handles fetching source texts with proper user isolation through RLS
  */
 export class SourceTextService {
+  constructor(private supabase: SupabaseClient<Database>) {}
 
   /**
    * Gets paginated list of user's source texts
@@ -22,14 +24,11 @@ export class SourceTextService {
    */
   async getSourceTexts(command: GetSourceTextsCommand): Promise<SourceTextListResponseDTO> {
     try {
-      // Use mock or real Supabase client based on environment
-      const supabase = isMockAuthEnabled() ? createMockSupabaseClient() : supabaseClient;
-
       // Calculate offset for pagination
       const offset = (command.page - 1) * command.limit;
 
       // Get total count for pagination metadata
-      const { count: totalCount, error: countError } = await supabase
+      const { count: totalCount, error: countError } = await this.supabase
         .from('source_texts')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', command.user_id);
@@ -44,7 +43,7 @@ export class SourceTextService {
       }
 
       // Get paginated source texts with flashcard count
-      const { data: sourceTexts, error: fetchError } = await supabase
+      const { data: sourceTexts, error: fetchError } = await this.supabase
         .from('source_texts')
         .select(`
           id,
@@ -112,11 +111,8 @@ export class SourceTextService {
    */
   async getSourceTextById(command: GetSourceTextByIdCommand): Promise<SourceTextDetailDTO> {
     try {
-      // Use mock or real Supabase client based on environment
-      const supabase = isMockAuthEnabled() ? createMockSupabaseClient() : supabaseClient;
-
       // Get source text with associated flashcards
-      const { data: sourceText, error: fetchError } = await supabase
+      const { data: sourceText, error: fetchError } = await this.supabase
         .from('source_texts')
         .select(`
           id,
