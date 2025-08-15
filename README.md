@@ -64,3 +64,35 @@ This project is currently in its Minimum Viable Product (MVP) stage. Core functi
 ## License
 
 This project is licensed under the MIT License.
+
+
+---
+---
+---
+
+Strony Astro (Server-Side):
+/login.astro - strona logowania z formularzem i obsługą CSRF
+/signup.astro - strona rejestracji z walidacją hasła
+/forgot-password.astro - strona resetowania hasła
+/reset-password.astro - strona ustawiania nowego hasła
+/flashcards.astro - chroniona strona główna aplikacji
+/index.astro - przekierowanie na podstawie stanu autentykacji
+
+Komponenty React (Client-Side):
+AuthProvider.tsx - kontekst autentykacji z login/logout
+Header.tsx - nagłówek z menu użytkownika i przyciskiem wylogowania
+Sidebar.tsx - pasek boczny z przyciskiem wylogowania
+AppLayout.tsx - główny layout aplikacji
+FlashcardsListView.tsx - główny kontener z providerami
+
+API Endpoints:
+/api/auth/signin - logowanie z rate limiting i CSRF
+/api/auth/signup - rejestracja z walidacją
+/api/auth/signout - wylogowanie
+/api/auth/forgot-password - reset hasła
+
+Middleware i Serwisy:
+middleware/index.ts - ochrona tras i zarządzanie sesją
+AuthService - integracja z Supabase
+CSRFProtection - ochrona przed atakami CSRF
+RateLimiter - ograniczenia prób autentykacji

@@ -1,0 +1,87 @@
+flowchart TD
+    %% Strony Astro (Server-Side)
+    subgraph "Strony Autentykacji"
+        LOGIN[Strona Logowania<br/>login.astro]
+        SIGNUP[Strona Rejestracji<br/>signup.astro]
+        FORGOT[Strona Resetowania Hasła<br/>forgot-password.astro]
+        RESET[Strona Nowego Hasła<br/>reset-password.astro]
+        FLASHCARDS[Strona Główna<br/>flashcards.astro]
+        INDEX[Strona Startowa<br/>index.astro]
+    end
+
+    %% Komponenty React (Client-Side)
+    subgraph "Komponenty React"
+        AUTH_PROVIDER[AuthProvider<br/>Kontekst Autentykacji]
+        HEADER[Header<br/>Menu Użytkownika]
+        SIDEBAR[Sidebar<br/>Nawigacja]
+        APP_LAYOUT[AppLayout<br/>Główny Layout]
+        FLASHCARDS_VIEW[FlashcardsListView<br/>Kontener Główny]
+    end
+
+    %% API Endpoints
+    subgraph "API Endpoints"
+        SIGNIN_API[POST /api/auth/signin<br/>Logowanie]
+        SIGNUP_API[POST /api/auth/signup<br/>Rejestracja]
+        SIGNOUT_API[POST /api/auth/signout<br/>Wylogowanie]
+        FORGOT_API[POST /api/auth/forgot-password<br/>Reset Hasła]
+    end
+
+    %% Middleware i Serwisy
+    subgraph "Backend i Middleware"
+        MIDDLEWARE[Middleware<br/>Ochrona Tras]
+        AUTH_SERVICE[AuthService<br/>Supabase Integration]
+        CSRF_PROTECTION[CSRF Protection<br/>Token Validation]
+        RATE_LIMITER[Rate Limiter<br/>Ograniczenia Prób]
+    end
+
+    %% Baza Danych
+    subgraph "Baza Danych"
+        SUPABASE[Supabase Auth<br/>Użytkownicy i Sesje]
+        RATE_LIMIT_DB[(Rate Limit Records<br/>Próby Autentykacji)]
+    end
+
+    %% Przepływ Autentykacji
+    INDEX --> |Redirect| LOGIN
+    INDEX --> |Redirect| FLASHCARDS
+    
+    LOGIN --> |Form Submit| SIGNIN_API
+    SIGNUP --> |Form Submit| SIGNUP_API
+    FORGOT --> |Form Submit| FORGOT_API
+    RESET --> |Form Submit| SIGNIN_API
+    
+    %% API Flow
+    SIGNIN_API --> RATE_LIMITER
+    SIGNUP_API --> RATE_LIMITER
+    FORGOT_API --> RATE_LIMITER
+    
+    RATE_LIMITER --> CSRF_PROTECTION
+    CSRF_PROTECTION --> AUTH_SERVICE
+    
+    AUTH_SERVICE --> SUPABASE
+    RATE_LIMITER --> RATE_LIMIT_DB
+    
+    %% Middleware Flow
+    MIDDLEWARE --> |Sprawdza Sesję| SUPABASE
+    MIDDLEWARE --> |Generuje Token| CSRF_PROTECTION
+    
+    %% Komponenty Flow
+    FLASHCARDS --> |Protected Route| MIDDLEWARE
+    FLASHCARDS --> FLASHCARDS_VIEW
+    
+    FLASHCARDS_VIEW --> AUTH_PROVIDER
+    FLASHCARDS_VIEW --> APP_LAYOUT
+    
+    APP_LAYOUT --> HEADER
+    APP_LAYOUT --> SIDEBAR
+    
+    HEADER --> |Logout| AUTH_PROVIDER
+    SIDEBAR --> |Logout| AUTH_PROVIDER
+    
+    AUTH_PROVIDER --> |Login State| HEADER
+    AUTH_PROVIDER --> |Login State| SIDEBAR
+        
+    class LOGIN,SIGNUP,FORGOT,RESET,FLASHCARDS,INDEX astroPages
+    class AUTH_PROVIDER,HEADER,SIDEBAR,APP_LAYOUT,FLASHCARDS_VIEW reactComponents
+    class SIGNIN_API,SIGNUP_API,SIGNOUT_API,FORGOT_API apiEndpoints
+    class MIDDLEWARE,AUTH_SERVICE,CSRF_PROTECTION,RATE_LIMITER backendServices
+    class SUPABASE,RATE_LIMIT_DB database
