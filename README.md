@@ -32,7 +32,7 @@
    ```powershell
    npm run dev
    ```
-5. **Access the app:**  Open your browser and navigate to `http://localhost:3000`
+5. **Access the app:** Open your browser and navigate to `http://localhost:3000`
 
 ## Available Scripts
 
@@ -47,18 +47,22 @@
 ## Testing Technologies
 
 ### Unit & Component Testing
+
 - **Vitest** - Fast unit testing framework for Vite-based projects
 - **React Testing Library** - Testing utilities for React components focusing on user behavior
 
 ### End-to-End & Integration Testing
+
 - **Playwright** - Cross-browser testing framework for E2E and API testing
 - **Cypress** - Alternative E2E testing solution (optional)
 
 ### API Testing
+
 - **Postman/Insomnia** - Manual API testing and documentation
 - **Supertest** - HTTP assertion library for testing API endpoints
 
 ### Performance Testing
+
 - **k6** - Load testing and performance monitoring
 - **Playwright Tracing** - Performance analysis and debugging
 
@@ -82,4 +86,3 @@ This project is currently in its Minimum Viable Product (MVP) stage. Core functi
 ## License
 
 This project is licensed under the MIT License.
-

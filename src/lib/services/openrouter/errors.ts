@@ -9,8 +9,8 @@ export class OpenRouterError extends Error {
     public details?: any
   ) {
     super(message);
-    this.name = 'OpenRouterError';
-    
+    this.name = "OpenRouterError";
+
     // Ensure proper prototype chain for instanceof checks
     Object.setPrototypeOf(this, OpenRouterError.prototype);
   }
@@ -24,7 +24,7 @@ export class OpenRouterError extends Error {
       message: this.message,
       code: this.code,
       statusCode: this.statusCode,
-      details: this.details
+      details: this.details,
     };
   }
 }
@@ -33,9 +33,9 @@ export class OpenRouterError extends Error {
  * Authentication error - invalid API key or unauthorized access
  */
 export class AuthenticationError extends OpenRouterError {
-  constructor(message: string = 'Nieprawidłowy klucz API') {
-    super(message, 'AUTHENTICATION_ERROR', 401);
-    this.name = 'AuthenticationError';
+  constructor(message: string = "Nieprawidłowy klucz API") {
+    super(message, "AUTHENTICATION_ERROR", 401);
+    this.name = "AuthenticationError";
     Object.setPrototypeOf(this, AuthenticationError.prototype);
   }
 }
@@ -45,8 +45,8 @@ export class AuthenticationError extends OpenRouterError {
  */
 export class RateLimitError extends OpenRouterError {
   constructor(retryAfter?: number) {
-    super('Przekroczono limit żądań', 'RATE_LIMIT_ERROR', 429, { retryAfter });
-    this.name = 'RateLimitError';
+    super("Przekroczono limit żądań", "RATE_LIMIT_ERROR", 429, { retryAfter });
+    this.name = "RateLimitError";
     Object.setPrototypeOf(this, RateLimitError.prototype);
   }
 
@@ -60,8 +60,8 @@ export class RateLimitError extends OpenRouterError {
  */
 export class ValidationError extends OpenRouterError {
   constructor(message: string, field?: string) {
-    super(message, 'VALIDATION_ERROR', 400, { field });
-    this.name = 'ValidationError';
+    super(message, "VALIDATION_ERROR", 400, { field });
+    this.name = "ValidationError";
     Object.setPrototypeOf(this, ValidationError.prototype);
   }
 
@@ -75,8 +75,8 @@ export class ValidationError extends OpenRouterError {
  */
 export class ModelNotAvailableError extends OpenRouterError {
   constructor(modelName: string) {
-    super(`Model ${modelName} nie jest dostępny`, 'MODEL_NOT_AVAILABLE', 400, { modelName });
-    this.name = 'ModelNotAvailableError';
+    super(`Model ${modelName} nie jest dostępny`, "MODEL_NOT_AVAILABLE", 400, { modelName });
+    this.name = "ModelNotAvailableError";
     Object.setPrototypeOf(this, ModelNotAvailableError.prototype);
   }
 
@@ -90,8 +90,8 @@ export class ModelNotAvailableError extends OpenRouterError {
  */
 export class InsufficientCreditsError extends OpenRouterError {
   constructor(required?: number, available?: number) {
-    super('Niewystarczające środki na koncie', 'INSUFFICIENT_CREDITS', 402, { required, available });
-    this.name = 'InsufficientCreditsError';
+    super("Niewystarczające środki na koncie", "INSUFFICIENT_CREDITS", 402, { required, available });
+    this.name = "InsufficientCreditsError";
     Object.setPrototypeOf(this, InsufficientCreditsError.prototype);
   }
 }
@@ -100,9 +100,9 @@ export class InsufficientCreditsError extends OpenRouterError {
  * Network error - connection issues
  */
 export class NetworkError extends OpenRouterError {
-  constructor(message: string = 'Błąd połączenia') {
-    super(message, 'NETWORK_ERROR', 0);
-    this.name = 'NetworkError';
+  constructor(message: string = "Błąd połączenia") {
+    super(message, "NETWORK_ERROR", 0);
+    this.name = "NetworkError";
     Object.setPrototypeOf(this, NetworkError.prototype);
   }
 }
@@ -112,8 +112,8 @@ export class NetworkError extends OpenRouterError {
  */
 export class TimeoutError extends OpenRouterError {
   constructor(timeout: number) {
-    super(`Timeout żądania (${timeout}ms)`, 'TIMEOUT_ERROR', 408, { timeout });
-    this.name = 'TimeoutError';
+    super(`Timeout żądania (${timeout}ms)`, "TIMEOUT_ERROR", 408, { timeout });
+    this.name = "TimeoutError";
     Object.setPrototypeOf(this, TimeoutError.prototype);
   }
 }
@@ -123,8 +123,8 @@ export class TimeoutError extends OpenRouterError {
  */
 export class JsonParsingError extends OpenRouterError {
   constructor(originalError: Error) {
-    super('Błąd parsowania odpowiedzi JSON', 'JSON_PARSING_ERROR', 500, { originalError: originalError.message });
-    this.name = 'JsonParsingError';
+    super("Błąd parsowania odpowiedzi JSON", "JSON_PARSING_ERROR", 500, { originalError: originalError.message });
+    this.name = "JsonParsingError";
     Object.setPrototypeOf(this, JsonParsingError.prototype);
   }
 }
@@ -134,8 +134,8 @@ export class JsonParsingError extends OpenRouterError {
  */
 export class SchemaValidationError extends OpenRouterError {
   constructor(message: string, expectedSchema?: any, receivedData?: any) {
-    super(message, 'SCHEMA_VALIDATION_ERROR', 422, { expectedSchema, receivedData });
-    this.name = 'SchemaValidationError';
+    super(message, "SCHEMA_VALIDATION_ERROR", 422, { expectedSchema, receivedData });
+    this.name = "SchemaValidationError";
     Object.setPrototypeOf(this, SchemaValidationError.prototype);
   }
 }
@@ -145,8 +145,8 @@ export class SchemaValidationError extends OpenRouterError {
  */
 export class ContentFilterError extends OpenRouterError {
   constructor(reason?: string) {
-    super('Treść została odfiltrowana przez moderację', 'CONTENT_FILTER_ERROR', 400, { reason });
-    this.name = 'ContentFilterError';
+    super("Treść została odfiltrowana przez moderację", "CONTENT_FILTER_ERROR", 400, { reason });
+    this.name = "ContentFilterError";
     Object.setPrototypeOf(this, ContentFilterError.prototype);
   }
 }
@@ -155,9 +155,9 @@ export class ContentFilterError extends OpenRouterError {
  * Server error - internal server error from OpenRouter
  */
 export class ServerError extends OpenRouterError {
-  constructor(message: string = 'Wewnętrzny błąd serwera', statusCode: number = 500) {
-    super(message, 'SERVER_ERROR', statusCode);
-    this.name = 'ServerError';
+  constructor(message: string = "Wewnętrzny błąd serwera", statusCode: number = 500) {
+    super(message, "SERVER_ERROR", statusCode);
+    this.name = "ServerError";
     Object.setPrototypeOf(this, ServerError.prototype);
   }
 }
@@ -167,8 +167,8 @@ export class ServerError extends OpenRouterError {
  */
 export class ServiceUnavailableError extends OpenRouterError {
   constructor(retryAfter?: number) {
-    super('Usługa tymczasowo niedostępna', 'SERVICE_UNAVAILABLE', 503, { retryAfter });
-    this.name = 'ServiceUnavailableError';
+    super("Usługa tymczasowo niedostępna", "SERVICE_UNAVAILABLE", 503, { retryAfter });
+    this.name = "ServiceUnavailableError";
     Object.setPrototypeOf(this, ServiceUnavailableError.prototype);
   }
 }
@@ -185,14 +185,8 @@ export function isOpenRouterError(error: unknown): error is OpenRouterError {
  */
 export function isRetryableError(error: unknown): boolean {
   if (!isOpenRouterError(error)) return false;
-  
-  const retryableCodes = [
-    'RATE_LIMIT_ERROR',
-    'TIMEOUT_ERROR',
-    'NETWORK_ERROR',
-    'SERVER_ERROR',
-    'SERVICE_UNAVAILABLE'
-  ];
-  
+
+  const retryableCodes = ["RATE_LIMIT_ERROR", "TIMEOUT_ERROR", "NETWORK_ERROR", "SERVER_ERROR", "SERVICE_UNAVAILABLE"];
+
   return retryableCodes.includes(error.code);
-} 
+}

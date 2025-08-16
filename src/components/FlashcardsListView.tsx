@@ -1,11 +1,11 @@
-import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AppLayout } from './layout/AppLayout';
-import { AuthProvider } from './providers/AuthProvider';
-import { ThemeProvider } from './providers/ThemeProvider';
-import { ToastProvider } from './providers/ToastProvider';
-import { FilterProvider } from './providers/FilterProvider';
-import { ErrorBoundary } from './error/ErrorBoundary';
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AppLayout } from "./layout/AppLayout";
+import { AuthProvider } from "./providers/AuthProvider";
+import { ThemeProvider } from "./providers/ThemeProvider";
+import { ToastProvider } from "./providers/ToastProvider";
+import { FilterProvider } from "./providers/FilterProvider";
+import { ErrorBoundary } from "./error/ErrorBoundary";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -40,4 +40,4 @@ export default function FlashcardsListView() {
       </ErrorBoundary>
     </QueryClientProvider>
   );
-} 
+}

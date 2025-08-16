@@ -1,14 +1,14 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../db/database.types';
-import type { 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../../db/database.types";
+import type {
   CreateSourceTextCommand,
   SourceTextDTO,
   SourceTextListResponseDTO,
   SourceTextDetailDTO,
   GetSourceTextsCommand,
   GetSourceTextByIdCommand,
-  PaginationDTO
-} from '../../types';
+  PaginationDTO,
+} from "../../types";
 
 /**
  * Service for managing source texts operations
@@ -29,38 +29,40 @@ export class SourceTextService {
 
       // Get total count for pagination metadata
       const { count: totalCount, error: countError } = await this.supabase
-        .from('source_texts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', command.user_id);
+        .from("source_texts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", command.user_id);
 
       if (countError) {
-        console.error('SourceTextService.getSourceTexts count error:', countError);
+        console.error("SourceTextService.getSourceTexts count error:", countError);
         throw {
-          type: 'DATABASE_ERROR',
-          message: 'Błąd podczas pobierania liczby tekstów źródłowych',
-          statusCode: 500
+          type: "DATABASE_ERROR",
+          message: "Błąd podczas pobierania liczby tekstów źródłowych",
+          statusCode: 500,
         };
       }
 
       // Get paginated source texts with flashcard count
       const { data: sourceTexts, error: fetchError } = await this.supabase
-        .from('source_texts')
-        .select(`
+        .from("source_texts")
+        .select(
+          `
           id,
           content,
           created_at,
           flashcards!inner(count)
-        `)
-        .eq('user_id', command.user_id)
-        .order('created_at', { ascending: false })
+        `
+        )
+        .eq("user_id", command.user_id)
+        .order("created_at", { ascending: false })
         .range(offset, offset + command.limit - 1);
 
       if (fetchError) {
-        console.error('SourceTextService.getSourceTexts fetch error:', fetchError);
+        console.error("SourceTextService.getSourceTexts fetch error:", fetchError);
         throw {
-          type: 'DATABASE_ERROR',
-          message: 'Błąd podczas pobierania tekstów źródłowych',
-          statusCode: 500
+          type: "DATABASE_ERROR",
+          message: "Błąd podczas pobierania tekstów źródłowych",
+          statusCode: 500,
         };
       }
 
@@ -69,25 +71,24 @@ export class SourceTextService {
         id: sourceText.id,
         content: sourceText.content,
         flashcard_count: sourceText.flashcards?.length || 0,
-        created_at: sourceText.created_at
+        created_at: sourceText.created_at,
       }));
 
       // Calculate pagination metadata
       const total = totalCount || 0;
       const pages = Math.ceil(total / command.limit);
-      
+
       const pagination: PaginationDTO = {
         page: command.page,
         limit: command.limit,
         total,
-        pages
+        pages,
       };
 
       return {
         data: sourceTextDTOs,
-        pagination
+        pagination,
       };
-
     } catch (error: any) {
       // Re-throw known errors
       if (error.type) {
@@ -95,11 +96,11 @@ export class SourceTextService {
       }
 
       // Handle unexpected errors
-      console.error('SourceTextService.getSourceTexts unexpected error:', error);
+      console.error("SourceTextService.getSourceTexts unexpected error:", error);
       throw {
-        type: 'INTERNAL_SERVER_ERROR',
-        message: 'Wystąpił nieoczekiwany błąd podczas pobierania tekstów źródłowych',
-        statusCode: 500
+        type: "INTERNAL_SERVER_ERROR",
+        message: "Wystąpił nieoczekiwany błąd podczas pobierania tekstów źródłowych",
+        statusCode: 500,
       };
     }
   }
@@ -113,8 +114,9 @@ export class SourceTextService {
     try {
       // Get source text with associated flashcards
       const { data: sourceText, error: fetchError } = await this.supabase
-        .from('source_texts')
-        .select(`
+        .from("source_texts")
+        .select(
+          `
           id,
           content,
           created_at,
@@ -124,34 +126,35 @@ export class SourceTextService {
             back,
             status
           )
-        `)
-        .eq('id', command.id)
-        .eq('user_id', command.user_id)
+        `
+        )
+        .eq("id", command.id)
+        .eq("user_id", command.user_id)
         .single();
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
+        if (fetchError.code === "PGRST116") {
           // No rows returned - source text not found or doesn't belong to user
           throw {
-            type: 'NOT_FOUND',
-            message: 'Tekst źródłowy nie został znaleziony',
-            statusCode: 404
+            type: "NOT_FOUND",
+            message: "Tekst źródłowy nie został znaleziony",
+            statusCode: 404,
           };
         }
 
-        console.error('SourceTextService.getSourceTextById fetch error:', fetchError);
+        console.error("SourceTextService.getSourceTextById fetch error:", fetchError);
         throw {
-          type: 'DATABASE_ERROR',
-          message: 'Błąd podczas pobierania tekstu źródłowego',
-          statusCode: 500
+          type: "DATABASE_ERROR",
+          message: "Błąd podczas pobierania tekstu źródłowego",
+          statusCode: 500,
         };
       }
 
       if (!sourceText) {
         throw {
-          type: 'NOT_FOUND',
-          message: 'Tekst źródłowy nie został znaleziony',
-          statusCode: 404
+          type: "NOT_FOUND",
+          message: "Tekst źródłowy nie został znaleziony",
+          statusCode: 404,
         };
       }
 
@@ -163,13 +166,12 @@ export class SourceTextService {
           id: flashcard.id,
           front: flashcard.front,
           back: flashcard.back,
-          status: flashcard.status
+          status: flashcard.status,
         })),
-        created_at: sourceText.created_at
+        created_at: sourceText.created_at,
       };
 
       return sourceTextDetailDTO;
-
     } catch (error: any) {
       // Re-throw known errors
       if (error.type) {
@@ -177,12 +179,12 @@ export class SourceTextService {
       }
 
       // Handle unexpected errors
-      console.error('SourceTextService.getSourceTextById unexpected error:', error);
+      console.error("SourceTextService.getSourceTextById unexpected error:", error);
       throw {
-        type: 'INTERNAL_SERVER_ERROR',
-        message: 'Wystąpił nieoczekiwany błąd podczas pobierania tekstu źródłowego',
-        statusCode: 500
+        type: "INTERNAL_SERVER_ERROR",
+        message: "Wystąpił nieoczekiwany błąd podczas pobierania tekstu źródłowego",
+        statusCode: 500,
       };
     }
   }
-} 
+}

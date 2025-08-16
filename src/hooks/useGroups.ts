@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { GroupDTO, CreateGroupRequestDTO } from '../types';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { GroupDTO, CreateGroupRequestDTO } from "../types";
 
 /**
  * Hook for managing groups
@@ -12,13 +12,13 @@ export function useGroups() {
   const {
     data: groups = [],
     isLoading,
-    error
+    error,
   } = useQuery({
-    queryKey: ['groups'],
+    queryKey: ["groups"],
     queryFn: async (): Promise<GroupDTO[]> => {
-      const response = await fetch('/api/groups');
+      const response = await fetch("/api/groups");
       if (!response.ok) {
-        throw new Error('Błąd podczas ładowania grup');
+        throw new Error("Błąd podczas ładowania grup");
       }
       const result = await response.json();
       return result.data || result; // Handle both formats
@@ -30,29 +30,29 @@ export function useGroups() {
   // Create new group
   const createGroupMutation = useMutation({
     mutationFn: async (data: CreateGroupRequestDTO): Promise<GroupDTO> => {
-      const response = await fetch('/api/groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Błąd podczas tworzenia grupy');
+        throw new Error(error.message || "Błąd podczas tworzenia grupy");
       }
 
       return response.json();
     },
     onSuccess: (newGroup) => {
       // Update groups cache
-      queryClient.setQueryData(['groups'], (old: GroupDTO[] = []) => {
+      queryClient.setQueryData(["groups"], (old: GroupDTO[] = []) => {
         return [...old, newGroup].sort((a, b) => a.name.localeCompare(b.name));
       });
     },
   });
 
   // Transform groups for MultiSelect component
-  const groupOptions = groups.map(group => ({
+  const groupOptions = groups.map((group) => ({
     id: group.id,
     name: group.name,
     description: group.description || undefined,
@@ -74,27 +74,27 @@ export function useGroups() {
 
   // Get groups by IDs (for displaying selected groups)
   const getGroupsByIds = (ids: string[]): GroupDTO[] => {
-    return groups.filter(group => ids.includes(group.id));
+    return groups.filter((group) => ids.includes(group.id));
   };
 
   return {
     // Data
     groups,
     groupOptions,
-    
+
     // Loading states
     isLoading,
     isCreating: createGroupMutation.isPending,
-    
+
     // Error states
     error,
     createError: createGroupMutation.error,
-    
+
     // Actions
     createGroup,
     getGroupsByIds,
-    
+
     // Utils
-    refetch: () => queryClient.invalidateQueries({ queryKey: ['groups'] }),
+    refetch: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
   };
-} 
+}

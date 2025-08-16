@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Moon, Sun, BarChart3, BookOpen, LogOut, User } from 'lucide-react';
-import type { FilterState, FlashcardStatus, FlashcardType } from '../../types';
-import { useTheme } from '../providers/ThemeProvider';
-import { useAuth } from '../providers/AuthProvider';
-import { useFilterContext } from '../providers/FilterProvider';
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, Moon, Sun, BarChart3, BookOpen, LogOut, User } from "lucide-react";
+import type { FilterState, FlashcardStatus, FlashcardType } from "../../types";
+import { useTheme } from "../providers/ThemeProvider";
+import { useAuth } from "../providers/AuthProvider";
+import { useFilterContext } from "../providers/FilterProvider";
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -24,7 +24,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
   const { filters, updateStatus, updateCreationType } = useFilterContext();
 
   const handleThemeToggle = () => {
-    setTheme(isDarkMode ? 'light' : 'dark');
+    setTheme(isDarkMode ? "light" : "dark");
   };
 
   const handleLogout = async () => {
@@ -32,7 +32,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
       await logout();
       // Redirect will be handled by auth state change
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error("Logout failed:", error);
     }
   };
 
@@ -50,33 +50,20 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
 
       {/* Theme Toggle */}
       <div className="p-4 border-b border-border">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleThemeToggle}
-          className="w-full justify-start gap-2"
-        >
+        <Button variant="ghost" size="sm" onClick={handleThemeToggle} className="w-full justify-start gap-2">
           {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {isDarkMode ? 'Jasny motyw' : 'Ciemny motyw'}
+          {isDarkMode ? "Jasny motyw" : "Ciemny motyw"}
         </Button>
       </div>
 
       {/* Navigation Menu */}
       <nav className="p-4 border-b border-border">
         <div className="space-y-2">
-          <Button
-            variant="default"
-            size="sm"
-            className="w-full justify-start gap-2"
-          >
+          <Button variant="default" size="sm" className="w-full justify-start gap-2">
             <BookOpen className="h-4 w-4" />
             Fiszki
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2"
-          >
+          <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
             <BarChart3 className="h-4 w-4" />
             Statystyki
           </Button>
@@ -87,13 +74,9 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
       <div className="flex-1 p-4">
         <Collapsible open={filtersExpanded} onOpenChange={setFiltersExpanded}>
           <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-between p-2"
-            >
+            <Button variant="ghost" size="sm" className="w-full justify-between p-2">
               <span className="font-medium">Filtry</span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${filtersExpanded ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-4 w-4 transition-transform ${filtersExpanded ? "rotate-180" : ""}`} />
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 mt-4">
@@ -103,42 +86,42 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                 <h4 className="font-medium text-sm mb-2">Status</h4>
                 <div className="space-y-1">
                   <label className="flex items-center gap-2 text-sm">
-                    <input 
-                      type="checkbox" 
-                      className="rounded" 
-                      checked={filters.status.includes('draft')}
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={filters.status.includes("draft")}
                       onChange={(e) => {
-                        const newStatus = e.target.checked 
-                          ? [...filters.status, 'draft' as FlashcardStatus]
-                          : filters.status.filter(s => s !== 'draft');
+                        const newStatus = e.target.checked
+                          ? [...filters.status, "draft" as FlashcardStatus]
+                          : filters.status.filter((s) => s !== "draft");
                         updateStatus(newStatus);
                       }}
                     />
                     Szkic
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <input 
-                      type="checkbox" 
-                      className="rounded" 
-                      checked={filters.status.includes('published')}
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={filters.status.includes("published")}
                       onChange={(e) => {
-                        const newStatus = e.target.checked 
-                          ? [...filters.status, 'published' as FlashcardStatus]
-                          : filters.status.filter(s => s !== 'published');
+                        const newStatus = e.target.checked
+                          ? [...filters.status, "published" as FlashcardStatus]
+                          : filters.status.filter((s) => s !== "published");
                         updateStatus(newStatus);
                       }}
                     />
                     Opublikowane
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <input 
-                      type="checkbox" 
-                      className="rounded" 
-                      checked={filters.status.includes('archived')}
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={filters.status.includes("archived")}
                       onChange={(e) => {
-                        const newStatus = e.target.checked 
-                          ? [...filters.status, 'archived' as FlashcardStatus]
-                          : filters.status.filter(s => s !== 'archived');
+                        const newStatus = e.target.checked
+                          ? [...filters.status, "archived" as FlashcardStatus]
+                          : filters.status.filter((s) => s !== "archived");
                         updateStatus(newStatus);
                       }}
                     />
@@ -154,28 +137,28 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                 <h4 className="font-medium text-sm mb-2">Type</h4>
                 <div className="space-y-1">
                   <label className="flex items-center gap-2 text-sm">
-                    <input 
-                      type="checkbox" 
-                      className="rounded" 
-                      checked={filters.creation_type.includes('llm')}
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={filters.creation_type.includes("llm")}
                       onChange={(e) => {
-                        const newCreationType = e.target.checked 
-                          ? [...filters.creation_type, 'llm' as FlashcardType]
-                          : filters.creation_type.filter(t => t !== 'llm');
+                        const newCreationType = e.target.checked
+                          ? [...filters.creation_type, "llm" as FlashcardType]
+                          : filters.creation_type.filter((t) => t !== "llm");
                         updateCreationType(newCreationType);
                       }}
                     />
                     🤖 Wygenerowane AI
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <input 
-                      type="checkbox" 
-                      className="rounded" 
-                      checked={filters.creation_type.includes('manual')}
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={filters.creation_type.includes("manual")}
                       onChange={(e) => {
-                        const newCreationType = e.target.checked 
-                          ? [...filters.creation_type, 'manual' as FlashcardType]
-                          : filters.creation_type.filter(t => t !== 'manual');
+                        const newCreationType = e.target.checked
+                          ? [...filters.creation_type, "manual" as FlashcardType]
+                          : filters.creation_type.filter((t) => t !== "manual");
                         updateCreationType(newCreationType);
                       }}
                     />
@@ -205,4 +188,4 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
       </div>
     </aside>
   );
-} 
+}

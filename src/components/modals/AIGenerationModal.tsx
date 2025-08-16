@@ -1,24 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { MultiSelect } from '../ui/multi-select';
-import { 
-  X, 
-  Sparkles, 
-  FileText, 
-  Hash,
-  Tag,
-  Users,
-  Zap,
-  AlertCircle,
-  CheckCircle,
-  Loader2
-} from 'lucide-react';
-import { useAIGeneration } from '../../hooks/useAIGeneration';
-import { useCategories } from '../../hooks/useCategories';
-import { useGroups } from '../../hooks/useGroups';
-import { useModal } from './ModalSystem';
-import type { GenerateFlashcardsRequestDTO } from '../../types';
+import React, { useState, useEffect, useCallback } from "react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { MultiSelect } from "../ui/multi-select";
+import { X, Sparkles, FileText, Hash, Tag, Users, Zap, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { useAIGeneration } from "../../hooks/useAIGeneration";
+import { useCategories } from "../../hooks/useCategories";
+import { useGroups } from "../../hooks/useGroups";
+import { useModal } from "./ModalSystem";
+import type { GenerateFlashcardsRequestDTO } from "../../types";
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -32,14 +21,9 @@ interface AIGenerationModalProps {
  * Focuses on form input and basic generation flow
  * Communicates completion through props callbacks
  */
-export function AIGenerationModal({ 
-  isOpen, 
-  onClose, 
-  onGenerate,
-  onOpenReview 
-}: AIGenerationModalProps) {
-  const [sourceText, setSourceText] = useState('');
-  const [selectedModel, setSelectedModel] = useState<string>('');
+export function AIGenerationModal({ isOpen, onClose, onGenerate, onOpenReview }: AIGenerationModalProps) {
+  const [sourceText, setSourceText] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const [maxCards, setMaxCards] = useState(10);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
@@ -58,12 +42,12 @@ export function AIGenerationModal({
     generatedCards,
     startGeneration,
     cancelGeneration,
-    clearResults
+    clearResults,
   } = useAIGeneration();
 
   const resetForm = useCallback(() => {
-    setSourceText('');
-    setSelectedModel(defaultModel?.id || '');
+    setSourceText("");
+    setSelectedModel(defaultModel?.id || "");
     setMaxCards(10);
     setSelectedCategories([]);
     setSelectedGroups([]);
@@ -77,17 +61,9 @@ export function AIGenerationModal({
     }
   }, [isOpen, resetForm]);
 
-  const {
-    categoryOptions,
-    isLoading: isLoadingCategories,
-    createCategory
-  } = useCategories();
+  const { categoryOptions, isLoading: isLoadingCategories, createCategory } = useCategories();
 
-  const {
-    groupOptions,
-    isLoading: isLoadingGroups,
-    createGroup
-  } = useGroups();
+  const { groupOptions, isLoading: isLoadingGroups, createGroup } = useGroups();
 
   // Set default model when models load
   useEffect(() => {
@@ -98,33 +74,39 @@ export function AIGenerationModal({
 
   // Handle generation completion - save to shared data and call onOpenReview
   useEffect(() => {
-    if (generationStatus === 'completed' && hasResults && onOpenReview && !reviewOpened) {
+    if (generationStatus === "completed" && hasResults && onOpenReview && !reviewOpened) {
       // Save generated cards to shared modal data
       if (generatedCards && generatedCards.length > 0) {
         updateSharedData({
           generatedFlashcards: generatedCards,
           sourceText: sourceText.trim(),
           selectedCategories,
-          selectedGroups
+          selectedGroups,
         });
       }
       setReviewOpened(true);
       onOpenReview();
     }
-  }, [generationStatus, hasResults, onOpenReview, generatedCards, updateSharedData, selectedCategories, selectedGroups, reviewOpened]);
+  }, [
+    generationStatus,
+    hasResults,
+    onOpenReview,
+    generatedCards,
+    updateSharedData,
+    selectedCategories,
+    selectedGroups,
+    reviewOpened,
+  ]);
 
   if (!isOpen) return null;
 
   const sourceTextValidation = validateSourceText(sourceText);
   const characterCount = sourceText.length;
-  const isFormValid = sourceTextValidation.isValid && 
-                     selectedModel && 
-                     maxCards >= 1 && 
-                     maxCards <= 100;
+  const isFormValid = sourceTextValidation.isValid && selectedModel && maxCards >= 1 && maxCards <= 100;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isFormValid) return;
 
     const request: GenerateFlashcardsRequestDTO = {
@@ -160,17 +142,10 @@ export function AIGenerationModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold">Generuj fiszki AI</h2>
-              <p className="text-sm text-muted-foreground">
-                Stwórz fiszki na podstawie tekstu źródłowego
-              </p>
+              <p className="text-sm text-muted-foreground">Stwórz fiszki na podstawie tekstu źródłowego</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClose}
-            disabled={isGenerating}
-          >
+          <Button variant="ghost" size="icon" onClick={handleClose} disabled={isGenerating}>
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -189,11 +164,7 @@ export function AIGenerationModal({
                   AI analizuje tekst i tworzy fiszki. To może zająć kilka sekund.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="gap-2"
-              >
+              <Button variant="outline" onClick={handleClose} className="gap-2">
                 Anuluj
               </Button>
             </div>
@@ -207,9 +178,7 @@ export function AIGenerationModal({
                     <FileText className="w-4 h-4" />
                     Tekst źródłowy
                   </label>
-                  <div className="text-xs text-muted-foreground">
-                    {characterCount}/10,000 znaków
-                  </div>
+                  <div className="text-xs text-muted-foreground">{characterCount}/10,000 znaków</div>
                 </div>
                 <textarea
                   value={sourceText}
@@ -251,7 +220,7 @@ export function AIGenerationModal({
                     {availableModels.map((model) => (
                       <option key={model.id} value={model.id}>
                         {model.name} - {model.provider}
-                        {model.is_default && ' (domyślny)'}
+                        {model.is_default && " (domyślny)"}
                       </option>
                     ))}
                   </select>
@@ -273,9 +242,7 @@ export function AIGenerationModal({
                   className="w-full"
                   disabled={isGenerating}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Zostanie wygenerowane maksymalnie {maxCards} fiszek
-                </p>
+                <p className="text-xs text-muted-foreground">Zostanie wygenerowane maksymalnie {maxCards} fiszek</p>
               </div>
 
               {/* Categories (Optional) */}
@@ -321,22 +288,13 @@ export function AIGenerationModal({
               {/* Footer */}
               <div className="flex items-center justify-between gap-3 pt-4 border-t border-border">
                 <div className="text-sm text-muted-foreground">
-                  {isFormValid ? 'Gotowe do generowania' : 'Wypełnij wymagane pola'}
+                  {isFormValid ? "Gotowe do generowania" : "Wypełnij wymagane pola"}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleClose}
-                    disabled={isGenerating}
-                  >
+                  <Button type="button" variant="outline" onClick={handleClose} disabled={isGenerating}>
                     Anuluj
                   </Button>
-                  <Button
-                    type="submit"
-                    disabled={!isFormValid || isGenerating}
-                    className="gap-2"
-                  >
+                  <Button type="submit" disabled={!isFormValid || isGenerating} className="gap-2">
                     <Sparkles className="w-4 h-4" />
                     Generuj fiszki
                   </Button>
@@ -348,4 +306,4 @@ export function AIGenerationModal({
       </div>
     </div>
   );
-} 
+}

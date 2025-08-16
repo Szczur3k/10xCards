@@ -1,5 +1,5 @@
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
   name?: string;
 }
@@ -17,7 +17,7 @@ export interface ChatOptions {
 }
 
 export interface ResponseFormat {
-  type: 'json_schema';
+  type: "json_schema";
   json_schema: {
     name: string;
     strict: boolean;
@@ -98,12 +98,12 @@ export interface TokenUsage {
 }
 
 export interface ModelParameters {
-  temperature?: number;      // 0.0 - 2.0
-  max_tokens?: number;      // 1 - model_max
-  top_p?: number;           // 0.0 - 1.0
-  top_k?: number;           // 1 - 40
+  temperature?: number; // 0.0 - 2.0
+  max_tokens?: number; // 1 - model_max
+  top_p?: number; // 0.0 - 1.0
+  top_k?: number; // 1 - 40
   frequency_penalty?: number; // -2.0 - 2.0
-  presence_penalty?: number;  // -2.0 - 2.0
+  presence_penalty?: number; // -2.0 - 2.0
   repetition_penalty?: number; // 0.1 - 2.0
 }
 
@@ -117,7 +117,7 @@ export interface OpenRouterConfig {
 }
 
 export interface FormattedMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
   name?: string;
 }
@@ -134,4 +134,4 @@ export interface ApiErrorResponse {
     type: string;
     code?: string;
   };
-} 
+}

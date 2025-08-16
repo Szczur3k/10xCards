@@ -2,13 +2,13 @@ name: Pull Request Checks
 
 on:
   pull_request:
-    branches: [ master, develop ]
+    branches: [master, develop]
   push:
-    branches: [ master, develop ]
+    branches: [master, develop]
 
 env:
-  NODE_VERSION: '20'
-  PNPM_VERSION: '8'
+  NODE_VERSION: "20"
+  PNPM_VERSION: "8"
 
 jobs:
   lint:
@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -45,7 +45,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -79,7 +79,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -148,27 +148,27 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            
+
             const botComment = comments.find(comment => 
               comment.user.type === 'Bot' && 
               comment.body.includes('## Status Testów')
             );
-            
+
             const status = '${{ steps.status.outputs.status }}';
             const color = '${{ steps.status.outputs.color }}';
-            
+
             const body = `## Status Testów
-            
+
             ${status}
-            
+
             ### Szczegóły:
             - **Lint:** ${{ needs.lint.result == 'success' && '✅' || '❌' }}
             - **Unit Tests:** ${{ needs.unit-tests.result == 'success' && '✅' || '❌' }}
             - **E2E Tests:** ${{ needs.e2e-tests.result == 'success' && '✅' || '❌' }}
-            
+
             ---
             *Automatycznie wygenerowane przez GitHub Actions*`;
-            
+
             if (botComment) {
               await github.rest.issues.updateComment({
                 comment_id: botComment.id,

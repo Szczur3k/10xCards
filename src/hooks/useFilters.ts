@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import type { FlashcardStatus, FlashcardType } from '../types';
+import { useState, useCallback, useMemo } from "react";
+import type { FlashcardStatus, FlashcardType } from "../types";
 
 // Simple debounce implementation
 function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
@@ -16,18 +16,18 @@ export interface FilterState {
   creation_type: FlashcardType[];
   category_ids: string[];
   group_ids: string[];
-  sort: 'created_at' | 'updated_at';
-  order: 'asc' | 'desc';
+  sort: "created_at" | "updated_at";
+  order: "asc" | "desc";
 }
 
 const defaultFilters: FilterState = {
-  search: '',
+  search: "",
   status: [],
   creation_type: [],
   category_ids: [],
   group_ids: [],
-  sort: 'created_at',
-  order: 'desc'
+  sort: "created_at",
+  order: "desc",
 };
 
 /**
@@ -36,51 +36,55 @@ const defaultFilters: FilterState = {
  */
 export function useFilters() {
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Debounced search update (300ms delay)
   const debouncedUpdateSearch = useMemo(
-    () => debounce((search: string) => {
-      setDebouncedSearch(search);
-    }, 300),
+    () =>
+      debounce((search: string) => {
+        setDebouncedSearch(search);
+      }, 300),
     []
   );
 
-  const updateSearch = useCallback((search: string) => {
-    setFilters(prev => ({ ...prev, search }));
-    debouncedUpdateSearch(search);
-  }, [debouncedUpdateSearch]);
+  const updateSearch = useCallback(
+    (search: string) => {
+      setFilters((prev) => ({ ...prev, search }));
+      debouncedUpdateSearch(search);
+    },
+    [debouncedUpdateSearch]
+  );
 
   const updateStatus = useCallback((status: FlashcardStatus[]) => {
-    setFilters(prev => ({ ...prev, status }));
+    setFilters((prev) => ({ ...prev, status }));
   }, []);
 
   const updateCreationType = useCallback((creation_type: FlashcardType[]) => {
-    setFilters(prev => ({ ...prev, creation_type }));
+    setFilters((prev) => ({ ...prev, creation_type }));
   }, []);
 
   const updateCategories = useCallback((category_ids: string[]) => {
-    setFilters(prev => ({ ...prev, category_ids }));
+    setFilters((prev) => ({ ...prev, category_ids }));
   }, []);
 
   const updateGroups = useCallback((group_ids: string[]) => {
-    setFilters(prev => ({ ...prev, group_ids }));
+    setFilters((prev) => ({ ...prev, group_ids }));
   }, []);
 
-  const updateSort = useCallback((sort: 'created_at' | 'updated_at', order: 'asc' | 'desc' = 'desc') => {
-    setFilters(prev => ({ ...prev, sort, order }));
+  const updateSort = useCallback((sort: "created_at" | "updated_at", order: "asc" | "desc" = "desc") => {
+    setFilters((prev) => ({ ...prev, sort, order }));
   }, []);
 
   const clearFilters = useCallback(() => {
     setFilters(defaultFilters);
-    setDebouncedSearch('');
+    setDebouncedSearch("");
   }, []);
 
   // Convert filters to API query parameters
   const toQueryParams = useCallback(() => {
     const params: Record<string, any> = {
       sort: filters.sort,
-      order: filters.order
+      order: filters.order,
     };
 
     // Use debounced search for API calls
@@ -129,6 +133,6 @@ export function useFilters() {
     updateSort,
     clearFilters,
     toQueryParams,
-    activeFilterCount
+    activeFilterCount,
   };
-} 
+}

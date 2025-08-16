@@ -1,7 +1,7 @@
-import React, { Component } from 'react';
-import type { ReactNode } from 'react';
-import { Button } from '../ui/button';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import React, { Component } from "react";
+import type { ReactNode } from "react";
+import { Button } from "../ui/button";
+import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -33,8 +33,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    const errorString = errorInfo.componentStack || '';
-    
+    const errorString = errorInfo.componentStack || "";
+
     this.setState({
       errorInfo: errorString,
     });
@@ -45,10 +45,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
 
     // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.group('🚨 Error Boundary Caught Error');
-      console.error('Error:', error);
-      console.error('Error Info:', errorInfo);
+    if (process.env.NODE_ENV === "development") {
+      console.group("🚨 Error Boundary Caught Error");
+      console.error("Error:", error);
+      console.error("Error Info:", errorInfo);
       console.groupEnd();
     }
   }
@@ -58,7 +58,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   handleGoHome = () => {
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   render() {
@@ -75,21 +75,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle className="w-8 h-8 text-destructive" />
             </div>
-            
+
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-foreground">
-                Coś poszło nie tak
-              </h2>
+              <h2 className="text-xl font-semibold text-foreground">Coś poszło nie tak</h2>
               <p className="text-muted-foreground">
                 Wystąpił nieoczekiwany błąd. Spróbuj odświeżyć stronę lub wróć do strony głównej.
               </p>
             </div>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {process.env.NODE_ENV === "development" && this.state.error && (
               <details className="text-left bg-muted p-4 rounded-md text-sm">
-                <summary className="cursor-pointer font-medium mb-2">
-                  Szczegóły błędu (tryb deweloperski)
-                </summary>
+                <summary className="cursor-pointer font-medium mb-2">Szczegóły błędu (tryb deweloperski)</summary>
                 <div className="space-y-2">
                   <div>
                     <strong>Błąd:</strong> {this.state.error.message}
@@ -97,9 +93,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   {this.state.errorInfo && (
                     <div>
                       <strong>Stack:</strong>
-                      <pre className="mt-1 text-xs overflow-auto">
-                        {this.state.errorInfo}
-                      </pre>
+                      <pre className="mt-1 text-xs overflow-auto">{this.state.errorInfo}</pre>
                     </div>
                   )}
                 </div>
@@ -107,18 +101,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             )}
 
             <div className="flex gap-3 justify-center">
-              <Button
-                variant="outline"
-                onClick={this.handleRetry}
-                className="gap-2"
-              >
+              <Button variant="outline" onClick={this.handleRetry} className="gap-2">
                 <RefreshCw className="w-4 h-4" />
                 Spróbuj ponownie
               </Button>
-              <Button
-                onClick={this.handleGoHome}
-                className="gap-2"
-              >
+              <Button onClick={this.handleGoHome} className="gap-2">
                 <Home className="w-4 h-4" />
                 Strona główna
               </Button>
@@ -130,4 +117,4 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return this.props.children;
   }
-} 
+}

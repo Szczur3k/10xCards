@@ -1,13 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button } from './button';
-import { Input } from './input';
-import { 
-  ChevronDown, 
-  X, 
-  Search,
-  Check,
-  Plus
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import { Button } from "./button";
+import { Input } from "./input";
+import { ChevronDown, X, Search, Check, Plus } from "lucide-react";
 
 export interface MultiSelectOption {
   id: string;
@@ -44,10 +38,10 @@ export function MultiSelect({
   disabled = false,
   loading = false,
   onCreate,
-  createLabel = "Utwórz nowy"
+  createLabel = "Utwórz nowy",
 }: MultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -57,12 +51,12 @@ export function MultiSelect({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        setSearchQuery('');
+        setSearchQuery("");
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Focus search input when dropdown opens
@@ -73,31 +67,32 @@ export function MultiSelect({
   }, [isOpen]);
 
   // Filter options based on search query
-  const filteredOptions = options.filter(option =>
-    option.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    option.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredOptions = options.filter(
+    (option) =>
+      option.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      option.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Get selected options for display
-  const selectedOptions = options.filter(option => selected.includes(option.id));
+  const selectedOptions = options.filter((option) => selected.includes(option.id));
 
   const handleToggle = () => {
     if (disabled) return;
     setIsOpen(!isOpen);
-    setSearchQuery('');
+    setSearchQuery("");
   };
 
   const handleOptionClick = (optionId: string) => {
     const newSelected = selected.includes(optionId)
-      ? selected.filter(id => id !== optionId)
+      ? selected.filter((id) => id !== optionId)
       : [...selected, optionId];
-    
+
     onChange(newSelected);
   };
 
   const handleRemoveSelected = (optionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    onChange(selected.filter(id => id !== optionId));
+    onChange(selected.filter((id) => id !== optionId));
   };
 
   const handleCreate = async () => {
@@ -107,9 +102,9 @@ export function MultiSelect({
     try {
       const newOption = await onCreate(searchQuery.trim());
       onChange([...selected, newOption.id]);
-      setSearchQuery('');
+      setSearchQuery("");
     } catch (error) {
-      console.error('Failed to create option:', error);
+      console.error("Failed to create option:", error);
     } finally {
       setIsCreating(false);
     }
@@ -129,14 +124,14 @@ export function MultiSelect({
         onClick={handleToggle}
         disabled={disabled || loading}
         className={`w-full justify-between text-left font-normal ${
-          selected.length === 0 ? 'text-muted-foreground' : ''
+          selected.length === 0 ? "text-muted-foreground" : ""
         }`}
       >
         <div className="flex-1 flex flex-wrap gap-1 mr-2">
           {selected.length === 0 ? (
             <span>{placeholder}</span>
           ) : selected.length <= 3 ? (
-            selectedOptions.map(option => (
+            selectedOptions.map((option) => (
               <span
                 key={option.id}
                 className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded"
@@ -164,7 +159,7 @@ export function MultiSelect({
             </span>
           )}
         </div>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </Button>
 
       {/* Dropdown */}
@@ -186,18 +181,13 @@ export function MultiSelect({
           </div>
 
           {/* Options List */}
-          <div 
-            className="max-h-[200px] overflow-y-auto"
-            style={{ maxHeight }}
-          >
+          <div className="max-h-[200px] overflow-y-auto" style={{ maxHeight }}>
             {loading ? (
-              <div className="p-3 text-center text-sm text-muted-foreground">
-                Ładowanie...
-              </div>
+              <div className="p-3 text-center text-sm text-muted-foreground">Ładowanie...</div>
             ) : filteredOptions.length === 0 ? (
               <div className="p-3">
                 <div className="text-center text-sm text-muted-foreground mb-2">
-                  {searchQuery ? 'Brak wyników wyszukiwania' : emptyMessage}
+                  {searchQuery ? "Brak wyników wyszukiwania" : emptyMessage}
                 </div>
                 {onCreate && searchQuery.trim() && (
                   <Button
@@ -219,7 +209,7 @@ export function MultiSelect({
               </div>
             ) : (
               <div className="py-1">
-                {filteredOptions.map(option => {
+                {filteredOptions.map((option) => {
                   const isSelected = selected.includes(option.id);
                   return (
                     <button
@@ -227,20 +217,20 @@ export function MultiSelect({
                       type="button"
                       onClick={() => handleOptionClick(option.id)}
                       className={`w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 ${
-                        isSelected ? 'bg-primary/10 text-primary' : ''
+                        isSelected ? "bg-primary/10 text-primary" : ""
                       }`}
                     >
-                      <div className={`w-4 h-4 border rounded flex items-center justify-center ${
-                        isSelected ? 'bg-primary border-primary' : 'border-border'
-                      }`}>
+                      <div
+                        className={`w-4 h-4 border rounded flex items-center justify-center ${
+                          isSelected ? "bg-primary border-primary" : "border-border"
+                        }`}
+                      >
                         {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
                       </div>
                       <div className="flex-1">
                         <div className="font-medium">{option.name}</div>
                         {option.description && (
-                          <div className="text-xs text-muted-foreground">
-                            {option.description}
-                          </div>
+                          <div className="text-xs text-muted-foreground">{option.description}</div>
                         )}
                       </div>
                     </button>
@@ -274,4 +264,4 @@ export function MultiSelect({
       )}
     </div>
   );
-} 
+}

@@ -1,11 +1,7 @@
-import type { APIContext } from 'astro';
-import { FlashcardService } from '../../../../lib/services/flashcard.service';
-import { validateReviewFlashcardRequest, validateUUID } from '../../../../lib/validation/flashcard.schemas';
-import type { 
-  ReviewFlashcardCommand, 
-  ErrorResponseDTO,
-  FlashcardDTO
-} from '../../../../types';
+import type { APIContext } from "astro";
+import { FlashcardService } from "../../../../lib/services/flashcard.service";
+import { validateReviewFlashcardRequest, validateUUID } from "../../../../lib/validation/flashcard.schemas";
+import type { ReviewFlashcardCommand, ErrorResponseDTO, FlashcardDTO } from "../../../../types";
 
 // Disable prerendering for API routes
 export const prerender = false;
@@ -18,16 +14,16 @@ export async function POST(context: APIContext): Promise<Response> {
   try {
     // Auth validation from middleware
     const { user, isAuthenticated, supabase } = context.locals;
-    
+
     if (!isAuthenticated || !user) {
       return new Response(
         JSON.stringify({
-          error: 'UNAUTHORIZED',
-          message: 'Wymagane jest zalogowanie'
+          error: "UNAUTHORIZED",
+          message: "Wymagane jest zalogowanie",
         } as ErrorResponseDTO),
         {
           status: 401,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { "Content-Type": "application/json" },
         }
       );
     }
@@ -37,12 +33,12 @@ export async function POST(context: APIContext): Promise<Response> {
     if (!flashcardId) {
       return new Response(
         JSON.stringify({
-          error: 'INVALID_PARAMETER',
-          message: 'ID fiszki jest wymagane'
+          error: "INVALID_PARAMETER",
+          message: "ID fiszki jest wymagane",
         } as ErrorResponseDTO),
         {
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { "Content-Type": "application/json" },
         }
       );
     }
@@ -57,12 +53,12 @@ export async function POST(context: APIContext): Promise<Response> {
     } catch (error) {
       return new Response(
         JSON.stringify({
-          error: 'INVALID_JSON',
-          message: 'Nieprawidłowy format JSON w żądaniu'
+          error: "INVALID_JSON",
+          message: "Nieprawidłowy format JSON w żądaniu",
         } as ErrorResponseDTO),
         {
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { "Content-Type": "application/json" },
         }
       );
     }
@@ -77,7 +73,7 @@ export async function POST(context: APIContext): Promise<Response> {
       action: validatedData.action,
       front: validatedData.front,
       back: validatedData.back,
-      status: validatedData.status
+      status: validatedData.status,
     };
 
     // Initialize service and review flashcard
@@ -86,35 +82,34 @@ export async function POST(context: APIContext): Promise<Response> {
 
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
-
   } catch (error: any) {
-    console.error('POST /api/flashcards/[id]/review error:', error);
+    console.error("POST /api/flashcards/[id]/review error:", error);
 
     // Handle validation errors
-    if (error && typeof error === 'object' && 'type' in error) {
+    if (error && typeof error === "object" && "type" in error) {
       const errorResponse: ErrorResponseDTO = {
         error: error.type,
         message: error.message,
-        details: error.details
+        details: error.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
         status: error.statusCode || 400,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     // Handle unexpected errors
     const errorResponse: ErrorResponseDTO = {
-      error: 'INTERNAL_SERVER_ERROR',
-      message: 'Wystąpił nieoczekiwany błąd serwera'
+      error: "INTERNAL_SERVER_ERROR",
+      message: "Wystąpił nieoczekiwany błąd serwera",
     };
 
     return new Response(JSON.stringify(errorResponse), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { "Content-Type": "application/json" },
     });
   }
-} 
+}

@@ -1,7 +1,7 @@
-import type { APIRoute } from 'astro';
-import type { SigninRequestDTO, AuthResponseDTO, ErrorResponseDTO } from '../../../types';
-import { AuthService } from '../../../lib/services/auth.service';
-import { validateSigninRequest } from '../../../lib/validation/auth.schemas';
+import type { APIRoute } from "astro";
+import type { SigninRequestDTO, AuthResponseDTO, ErrorResponseDTO } from "../../../types";
+import { AuthService } from "../../../lib/services/auth.service";
+import { validateSigninRequest } from "../../../lib/validation/auth.schemas";
 // import { RateLimiter, rateLimitConfigs, createRateLimitError } from '../../../lib/middleware/rate-limit';
 // import { validateCSRF } from '../../../lib/middleware/csrf';
 
@@ -13,11 +13,11 @@ export const prerender = false;
  */
 export const POST: APIRoute = async ({ request, cookies }) => {
   // const rateLimiter = new RateLimiter({ headers: request.headers, cookies });
-  
+
   try {
     // Rate limiting check - DISABLED FOR TESTING
     // const rateLimit = await rateLimiter.checkLimit(request, rateLimitConfigs.auth);
-    
+
     // if (!rateLimit.allowed) {
     //   const rateLimitError = createRateLimitError(rateLimit.resetTime);
     //   return new Response(
@@ -27,7 +27,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     //     } as ErrorResponseDTO),
     //     {
     //       status: rateLimitError.statusCode,
-    //       headers: { 
+    //       headers: {
     //         'Content-Type': 'application/json',
     //         ...rateLimitError.headers
     //       }
@@ -57,12 +57,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     } catch (error) {
       return new Response(
         JSON.stringify({
-          error: 'INVALID_JSON',
-          message: 'Nieprawidłowy format JSON w żądaniu'
+          error: "INVALID_JSON",
+          message: "Nieprawidłowy format JSON w żądaniu",
         } as ErrorResponseDTO),
         {
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { "Content-Type": "application/json" },
         }
       );
     }
@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     // Create signin command
     const signinCommand = {
       email: validatedData.email,
-      password: validatedData.password
+      password: validatedData.password,
     };
 
     // Execute signin through service
@@ -84,51 +84,41 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     // await rateLimiter.clearSuccessfulAttempt(request, rateLimitConfigs.auth);
 
     // Return success response with rate limit headers - DISABLED FOR TESTING
-    return new Response(
-      JSON.stringify(result),
-      {
-        status: 200,
-        headers: { 
-          'Content-Type': 'application/json'
-          // 'X-RateLimit-Remaining': rateLimitConfigs.auth.maxAttempts.toString(),
-          // 'X-RateLimit-Reset': (Date.now() + rateLimitConfigs.auth.windowMs).toString()
-        }
-      }
-    );
-
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        // 'X-RateLimit-Remaining': rateLimitConfigs.auth.maxAttempts.toString(),
+        // 'X-RateLimit-Reset': (Date.now() + rateLimitConfigs.auth.windowMs).toString()
+      },
+    });
   } catch (error: any) {
-    console.error('Signin endpoint error:', error);
+    console.error("Signin endpoint error:", error);
 
     // Handle structured errors from validation or service
-    if (error && typeof error === 'object' && 'type' in error) {
+    if (error && typeof error === "object" && "type" in error) {
       const errorResponse: ErrorResponseDTO = {
         error: error.type,
         message: error.message,
-        details: error.details
+        details: error.details,
       };
 
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: error.statusCode || 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Handle unexpected errors
     const errorResponse: ErrorResponseDTO = {
-      error: 'INTERNAL_SERVER_ERROR',
-      message: 'Wystąpił nieoczekiwany błąd serwera'
+      error: "INTERNAL_SERVER_ERROR",
+      message: "Wystąpił nieoczekiwany błąd serwera",
     };
 
-    return new Response(
-      JSON.stringify(errorResponse),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+    return new Response(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 };
 
@@ -136,15 +126,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 export const GET: APIRoute = async () => {
   return new Response(
     JSON.stringify({
-      error: 'METHOD_NOT_ALLOWED',
-      message: 'Metoda GET nie jest obsługiwana dla tego endpointu'
+      error: "METHOD_NOT_ALLOWED",
+      message: "Metoda GET nie jest obsługiwana dla tego endpointu",
     } as ErrorResponseDTO),
     {
       status: 405,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Allow': 'POST'
-      }
+      headers: {
+        "Content-Type": "application/json",
+        Allow: "POST",
+      },
     }
   );
-}; 
+};

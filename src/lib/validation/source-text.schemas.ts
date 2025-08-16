@@ -1,18 +1,24 @@
-import { z } from 'zod';
-import type { SourceTextQueryParams } from '../../types';
+import { z } from "zod";
+import type { SourceTextQueryParams } from "../../types";
 
 /**
  * Schema for validating source text query parameters
  */
 export const sourceTextQueryParamsSchema = z.object({
-  page: z.coerce.number().int().min(1, 'Numer strony musi być większy niż 0').optional().default(1),
-  limit: z.coerce.number().int().min(1, 'Limit musi być większy niż 0').max(100, 'Limit nie może przekraczać 100').optional().default(20)
+  page: z.coerce.number().int().min(1, "Numer strony musi być większy niż 0").optional().default(1),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1, "Limit musi być większy niż 0")
+    .max(100, "Limit nie może przekraczać 100")
+    .optional()
+    .default(20),
 });
 
 /**
  * Schema for validating UUID format
  */
-export const uuidSchema = z.string().uuid('Nieprawidłowy format UUID');
+export const uuidSchema = z.string().uuid("Nieprawidłowy format UUID");
 
 /**
  * Validates source text query parameters
@@ -26,9 +32,9 @@ export function validateSourceTextQueryParams(params: any): SourceTextQueryParam
   } catch (error) {
     if (error instanceof z.ZodError) {
       const details: Record<string, string[]> = {};
-      
-      error.errors.forEach(err => {
-        const field = err.path.join('.');
+
+      error.errors.forEach((err) => {
+        const field = err.path.join(".");
         if (!details[field]) {
           details[field] = [];
         }
@@ -36,10 +42,10 @@ export function validateSourceTextQueryParams(params: any): SourceTextQueryParam
       });
 
       throw {
-        type: 'VALIDATION_ERROR',
-        message: 'Nieprawidłowe parametry zapytania',
+        type: "VALIDATION_ERROR",
+        message: "Nieprawidłowe parametry zapytania",
         details,
-        statusCode: 400
+        statusCode: 400,
       };
     }
     throw error;
@@ -53,20 +59,20 @@ export function validateSourceTextQueryParams(params: any): SourceTextQueryParam
  * @returns Validated UUID string
  * @throws Validation error if UUID is invalid
  */
-export function validateUUID(id: string, fieldName: string = 'id'): string {
+export function validateUUID(id: string, fieldName: string = "id"): string {
   try {
     return uuidSchema.parse(id);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw {
-        type: 'VALIDATION_ERROR',
+        type: "VALIDATION_ERROR",
         message: `Nieprawidłowy format ${fieldName}`,
         details: {
-          [fieldName]: ['Nieprawidłowy format UUID']
+          [fieldName]: ["Nieprawidłowy format UUID"],
         },
-        statusCode: 400
+        statusCode: 400,
       };
     }
     throw error;
   }
-} 
+}

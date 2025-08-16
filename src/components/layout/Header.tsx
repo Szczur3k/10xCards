@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Search, Sparkles, Plus, User, ChevronDown } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search, Sparkles, Plus, User, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from '../providers/AuthProvider';
+import { useAuth } from "../providers/AuthProvider";
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -25,8 +25,15 @@ interface HeaderProps {
  * Contains search bar with debounced input, Generate AI button, Add Manual button
  * Shows selected count when cards are selected for bulk operations
  */
-export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0, totalCount = 0, onSelectAll }: HeaderProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+export function Header({
+  onSearch,
+  onGenerateAI,
+  onAddManual,
+  selectedCount = 0,
+  totalCount = 0,
+  onSelectAll,
+}: HeaderProps) {
+  const [searchQuery, setSearchQuery] = useState("");
   const { user, logout } = useAuth();
 
   // Debounced search implementation
@@ -48,7 +55,7 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
     try {
       await logout();
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error("Logout failed:", error);
     }
   };
 
@@ -58,7 +65,7 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
       // Show blocking message
       return;
     }
-    
+
     if (onGenerateAI) {
       onGenerateAI();
     }
@@ -86,25 +93,15 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
           {selectedCount > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg">
               <span className="text-sm font-medium">
-                {selectedCount} card{selectedCount !== 1 ? 's' : ''} selected
+                {selectedCount} card{selectedCount !== 1 ? "s" : ""} selected
               </span>
             </div>
           )}
-          
+
           {/* Select All Button - show when there are cards and not all selected */}
           {totalCount > 0 && selectedCount < totalCount && onSelectAll && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSelectAll}
-              className="gap-2"
-            >
-              <input 
-                type="checkbox" 
-                className="w-3 h-3" 
-                checked={false}
-                readOnly
-              />
+            <Button variant="outline" size="sm" onClick={onSelectAll} className="gap-2">
+              <input type="checkbox" className="w-3 h-3" checked={false} readOnly />
               Select All ({totalCount})
             </Button>
           )}
@@ -113,21 +110,13 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
         {/* Right side - Primary actions and user menu */}
         <div className="flex items-center gap-3">
           {/* Generate AI Button */}
-          <Button
-            onClick={handleGenerateAI}
-            disabled={selectedCount > 0}
-            className="gap-2"
-          >
+          <Button onClick={handleGenerateAI} disabled={selectedCount > 0} className="gap-2">
             <Sparkles className="h-4 w-4" />
             Generuj fiszki AI
           </Button>
 
           {/* Add Manual Button */}
-          <Button
-            variant="outline"
-            onClick={onAddManual}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={onAddManual} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Manual
           </Button>
@@ -135,12 +124,9 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
           {/* User Menu Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="gap-2 px-3"
-              >
+              <Button variant="ghost" className="gap-2 px-3">
                 <User className="h-4 w-4" />
-                <span className="hidden sm:inline-block">{user?.email || 'User'}</span>
+                <span className="hidden sm:inline-block">{user?.email || "User"}</span>
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -152,7 +138,12 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
                 </svg>
                 Sign Out
               </DropdownMenuItem>
@@ -162,4 +153,4 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
       </div>
     </header>
   );
-} 
+}

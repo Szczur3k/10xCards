@@ -1,13 +1,6 @@
-import type { 
-  SignupCommand, 
-  SigninCommand, 
-  SignoutCommand,
-  AuthResponseDTO,
-  UserDTO,
-  SessionDTO
-} from '../../types';
-import type { AstroCookies } from 'astro';
-import { createSupabaseServerClient } from '../../db/supabase.client';
+import type { SignupCommand, SigninCommand, SignoutCommand, AuthResponseDTO, UserDTO, SessionDTO } from "../../types";
+import type { AstroCookies } from "astro";
+import { createSupabaseServerClient } from "../../db/supabase.client";
 
 /**
  * AuthService - handles authentication operations with Supabase SSR
@@ -29,9 +22,9 @@ export class AuthService {
         password: command.password,
         options: {
           data: {
-            email: command.email
-          }
-        }
+            email: command.email,
+          },
+        },
       });
 
       if (error) {
@@ -40,24 +33,23 @@ export class AuthService {
 
       if (!data.user || !data.session) {
         throw {
-          type: 'SIGNUP_FAILED',
-          message: 'Nie udało się utworzyć konta użytkownika',
-          statusCode: 500
+          type: "SIGNUP_FAILED",
+          message: "Nie udało się utworzyć konta użytkownika",
+          statusCode: 500,
         };
       }
 
       return this.formatAuthResponse(data);
-
     } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error) {
+      if (error && typeof error === "object" && "type" in error) {
         throw error;
       }
-      
-      console.error('Signup error:', error);
+
+      console.error("Signup error:", error);
       throw {
-        type: 'INTERNAL_SERVER_ERROR',
-        message: 'Wystąpił nieoczekiwany błąd podczas rejestracji',
-        statusCode: 500
+        type: "INTERNAL_SERVER_ERROR",
+        message: "Wystąpił nieoczekiwany błąd podczas rejestracji",
+        statusCode: 500,
       };
     }
   }
@@ -69,7 +61,7 @@ export class AuthService {
     try {
       const { data, error } = await this.supabase.auth.signInWithPassword({
         email: command.email,
-        password: command.password
+        password: command.password,
       });
 
       if (error) {
@@ -78,24 +70,23 @@ export class AuthService {
 
       if (!data.user || !data.session) {
         throw {
-          type: 'SIGNIN_FAILED',
-          message: 'Nie udało się zalogować użytkownika',
-          statusCode: 500
+          type: "SIGNIN_FAILED",
+          message: "Nie udało się zalogować użytkownika",
+          statusCode: 500,
         };
       }
 
       return this.formatAuthResponse(data);
-
     } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error) {
+      if (error && typeof error === "object" && "type" in error) {
         throw error;
       }
-      
-      console.error('Signin error:', error);
+
+      console.error("Signin error:", error);
       throw {
-        type: 'INTERNAL_SERVER_ERROR',
-        message: 'Wystąpił nieoczekiwany błąd podczas logowania',
-        statusCode: 500
+        type: "INTERNAL_SERVER_ERROR",
+        message: "Wystąpił nieoczekiwany błąd podczas logowania",
+        statusCode: 500,
       };
     }
   }
@@ -110,17 +101,16 @@ export class AuthService {
       if (error) {
         throw this.mapSupabaseAuthError(error);
       }
-
     } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error) {
+      if (error && typeof error === "object" && "type" in error) {
         throw error;
       }
-      
-      console.error('Signout error:', error);
+
+      console.error("Signout error:", error);
       throw {
-        type: 'INTERNAL_SERVER_ERROR',
-        message: 'Wystąpił nieoczekiwany błąd podczas wylogowania',
-        statusCode: 500
+        type: "INTERNAL_SERVER_ERROR",
+        message: "Wystąpił nieoczekiwany błąd podczas wylogowania",
+        statusCode: 500,
       };
     }
   }
@@ -130,10 +120,13 @@ export class AuthService {
    */
   async getCurrentUser(): Promise<UserDTO | null> {
     try {
-      const { data: { user }, error } = await this.supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await this.supabase.auth.getUser();
 
       if (error) {
-        console.error('Get user error:', error);
+        console.error("Get user error:", error);
         return null;
       }
 
@@ -144,12 +137,11 @@ export class AuthService {
       return {
         id: user.id,
         email: user.email!,
-        role: 'user', // Default role, could be enhanced with user profile lookup
-        created_at: user.created_at
+        role: "user", // Default role, could be enhanced with user profile lookup
+        created_at: user.created_at,
       };
-
     } catch (error) {
-      console.error('Get current user error:', error);
+      console.error("Get current user error:", error);
       return null;
     }
   }
@@ -170,9 +162,8 @@ export class AuthService {
       }
 
       return this.formatAuthResponse(data);
-
     } catch (error) {
-      console.error('Refresh session error:', error);
+      console.error("Refresh session error:", error);
       return null;
     }
   }
@@ -185,13 +176,13 @@ export class AuthService {
       user: {
         id: data.user.id,
         email: data.user.email!,
-        role: 'user', // Default role
-        created_at: data.user.created_at
+        role: "user", // Default role
+        created_at: data.user.created_at,
       },
       session: {
         access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token
-      }
+        refresh_token: data.session.refresh_token,
+      },
     };
   }
 
@@ -201,17 +192,17 @@ export class AuthService {
   async forgotPassword(command: { email: string }): Promise<void> {
     try {
       const { error } = await this.supabase.auth.resetPasswordForEmail(command.email, {
-        redirectTo: `${this.getBaseUrl()}/reset-password`
+        redirectTo: `${this.getBaseUrl()}/reset-password`,
       });
 
       if (error) {
         // For security, we don't throw errors that reveal if email exists
         // Just log the error and continue
-        console.error('Forgot password error:', error);
+        console.error("Forgot password error:", error);
       }
     } catch (error) {
       // For security, we don't throw errors that reveal if email exists
-      console.error('Forgot password error:', error);
+      console.error("Forgot password error:", error);
     }
   }
 
@@ -223,7 +214,7 @@ export class AuthService {
       // Note: In Supabase, password reset is handled via URL parameters
       // This method would be used after user clicks the reset link
       const { data, error } = await this.supabase.auth.updateUser({
-        password: command.password
+        password: command.password,
       });
 
       if (error) {
@@ -232,23 +223,23 @@ export class AuthService {
 
       if (!data.user) {
         throw {
-          type: 'RESET_PASSWORD_FAILED',
-          message: 'Nie udało się zresetować hasła',
-          statusCode: 400
+          type: "RESET_PASSWORD_FAILED",
+          message: "Nie udało się zresetować hasła",
+          statusCode: 400,
         };
       }
 
       return this.formatAuthResponse(data);
     } catch (error) {
-      if (error && typeof error === 'object' && 'type' in error) {
+      if (error && typeof error === "object" && "type" in error) {
         throw error;
       }
-      
-      console.error('Reset password error:', error);
+
+      console.error("Reset password error:", error);
       throw {
-        type: 'INTERNAL_SERVER_ERROR',
-        message: 'Wystąpił nieoczekiwany błąd podczas resetowania hasła',
-        statusCode: 500
+        type: "INTERNAL_SERVER_ERROR",
+        message: "Wystąpił nieoczekiwany błąd podczas resetowania hasła",
+        statusCode: 500,
       };
     }
   }
@@ -258,59 +249,57 @@ export class AuthService {
    */
   private getBaseUrl(): string {
     // In production, this should come from environment variables
-    return typeof window !== 'undefined' 
-      ? window.location.origin 
-      : 'http://localhost:3001';
+    return typeof window !== "undefined" ? window.location.origin : "http://localhost:3001";
   }
 
   /**
    * Map Supabase auth errors to our error format
    */
   private mapSupabaseAuthError(error: any) {
-    console.error('Supabase auth error:', error);
+    console.error("Supabase auth error:", error);
 
     switch (error.message) {
-      case 'Invalid login credentials':
+      case "Invalid login credentials":
         return {
-          type: 'INVALID_CREDENTIALS',
-          message: 'Nieprawidłowy email lub hasło',
-          statusCode: 401
+          type: "INVALID_CREDENTIALS",
+          message: "Nieprawidłowy email lub hasło",
+          statusCode: 401,
         };
-      
-      case 'User already registered':
+
+      case "User already registered":
         return {
-          type: 'EMAIL_ALREADY_EXISTS',
-          message: 'Konto z tym adresem email już istnieje',
-          statusCode: 409
+          type: "EMAIL_ALREADY_EXISTS",
+          message: "Konto z tym adresem email już istnieje",
+          statusCode: 409,
         };
-      
-      case 'Password should be at least 6 characters':
+
+      case "Password should be at least 6 characters":
         return {
-          type: 'WEAK_PASSWORD',
-          message: 'Hasło musi mieć co najmniej 6 znaków',
-          statusCode: 400
+          type: "WEAK_PASSWORD",
+          message: "Hasło musi mieć co najmniej 6 znaków",
+          statusCode: 400,
         };
-      
-      case 'Unable to validate email address: invalid format':
+
+      case "Unable to validate email address: invalid format":
         return {
-          type: 'INVALID_EMAIL',
-          message: 'Nieprawidłowy format adresu email',
-          statusCode: 400
+          type: "INVALID_EMAIL",
+          message: "Nieprawidłowy format adresu email",
+          statusCode: 400,
         };
-      
-      case 'Email not confirmed':
+
+      case "Email not confirmed":
         return {
-          type: 'EMAIL_NOT_VERIFIED',
-          message: 'Potwierdź swój adres email przed logowaniem',
-          statusCode: 403
+          type: "EMAIL_NOT_VERIFIED",
+          message: "Potwierdź swój adres email przed logowaniem",
+          statusCode: 403,
         };
-      
+
       default:
         return {
-          type: 'AUTH_ERROR',
-          message: error.message || 'Wystąpił błąd podczas uwierzytelniania',
-          statusCode: 400
+          type: "AUTH_ERROR",
+          message: error.message || "Wystąpił błąd podczas uwierzytelniania",
+          statusCode: 400,
         };
     }
   }
-} 
+}

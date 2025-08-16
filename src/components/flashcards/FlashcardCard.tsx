@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { MoreHorizontal, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
-import type { FlashcardViewModel, FlashcardStatus, FlashcardType } from '../../types';
+import React, { useState } from "react";
+import { MoreHorizontal, Edit, Trash2, Eye, EyeOff } from "lucide-react";
+import type { FlashcardViewModel, FlashcardStatus, FlashcardType } from "../../types";
 
 interface FlashcardCardProps {
   flashcard: FlashcardViewModel;
@@ -17,13 +17,13 @@ function StatusIndicator({ status }: { status: FlashcardStatus | null }) {
   if (!status) return null;
 
   const statusConfig = {
-    draft: { color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', label: 'Szkic' },
-    published: { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', label: 'Opublikowane' },
-    archived: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', label: 'Zarchiwizowane' }
+    draft: { color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200", label: "Szkic" },
+    published: { color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", label: "Opublikowane" },
+    archived: { color: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200", label: "Zarchiwizowane" },
   };
 
   const config = statusConfig[status];
-  
+
   return (
     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
       {config.label}
@@ -36,12 +36,12 @@ function StatusIndicator({ status }: { status: FlashcardStatus | null }) {
  */
 function TypeIndicator({ type }: { type: FlashcardType }) {
   const typeConfig = {
-    manual: { icon: '✏️', label: 'Ręczne' },
-    llm: { icon: '🤖', label: 'AI' }
+    manual: { icon: "✏️", label: "Ręczne" },
+    llm: { icon: "🤖", label: "AI" },
   };
 
   const config = typeConfig[type];
-  
+
   return (
     <span className="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
       <span>{config.icon}</span>
@@ -54,25 +54,15 @@ function TypeIndicator({ type }: { type: FlashcardType }) {
  * ContentPreview - Truncated content with character limits
  */
 function ContentPreview({ content, maxLength = 100 }: { content: string; maxLength?: number }) {
-  const truncated = content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
-  
-  return (
-    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-      {truncated}
-    </p>
-  );
+  const truncated = content.length > maxLength ? content.substring(0, maxLength) + "..." : content;
+
+  return <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{truncated}</p>;
 }
 
 /**
  * ActionsMenu - Dropdown menu with card actions
  */
-function ActionsMenu({ 
-  onEdit, 
-  onDelete 
-}: { 
-  onEdit: () => void; 
-  onDelete: () => void; 
-}) {
+function ActionsMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -86,15 +76,12 @@ function ActionsMenu({
       >
         <MoreHorizontal className="w-4 h-4 text-gray-500" />
       </button>
-      
+
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-10" 
-            onClick={() => setIsOpen(false)}
-          />
-          
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+
           {/* Menu */}
           <div className="absolute right-0 top-8 z-20 w-32 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1">
             <button
@@ -131,13 +118,7 @@ function ActionsMenu({
  * Supports selection, front/back toggle, content preview, and action menu
  * Implements hover effects and responsive design
  */
-export function FlashcardCard({
-  flashcard,
-  selected,
-  onSelect,
-  onEdit,
-  onDelete
-}: FlashcardCardProps) {
+export function FlashcardCard({ flashcard, selected, onSelect, onEdit, onDelete }: FlashcardCardProps) {
   const [showBack, setShowBack] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -154,11 +135,12 @@ export function FlashcardCard({
     <div
       className={`
         relative bg-white dark:bg-gray-800 rounded-lg border-2 transition-all duration-200 cursor-pointer
-        ${selected 
-          ? 'border-blue-500 shadow-lg shadow-blue-500/20' 
-          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+        ${
+          selected
+            ? "border-blue-500 shadow-lg shadow-blue-500/20"
+            : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
         }
-        ${isHovered ? 'shadow-md' : 'shadow-sm'}
+        ${isHovered ? "shadow-md" : "shadow-sm"}
       `}
       onClick={handleCardClick}
       onMouseEnter={() => setIsHovered(true)}
@@ -177,10 +159,7 @@ export function FlashcardCard({
 
       {/* Actions Menu */}
       <div className="absolute top-3 right-3 z-10">
-        <ActionsMenu
-          onEdit={() => onEdit(flashcard.id)}
-          onDelete={() => onDelete(flashcard.id)}
-        />
+        <ActionsMenu onEdit={() => onEdit(flashcard.id)} onDelete={() => onDelete(flashcard.id)} />
       </div>
 
       {/* Card Content */}
@@ -201,16 +180,13 @@ export function FlashcardCard({
             className="flex items-center gap-2 px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
           >
             {showBack ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            {showBack ? 'Tył' : 'Przód'}
+            {showBack ? "Tył" : "Przód"}
           </button>
         </div>
 
         {/* Content */}
         <div className="min-h-[120px] flex items-center justify-center">
-          <ContentPreview 
-            content={showBack ? flashcard.back : flashcard.front}
-            maxLength={showBack ? 200 : 150}
-          />
+          <ContentPreview content={showBack ? flashcard.back : flashcard.front} maxLength={showBack ? 200 : 150} />
         </div>
 
         {/* Footer with Categories/Groups */}
@@ -254,4 +230,4 @@ export function FlashcardCard({
       </div>
     </div>
   );
-} 
+}

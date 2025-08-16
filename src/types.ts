@@ -1,29 +1,29 @@
-import type { Database, Tables, TablesInsert, TablesUpdate, Enums } from './db/database.types';
+import type { Database, Tables, TablesInsert, TablesUpdate, Enums } from "./db/database.types";
 
 // ============================================================================
 // BASE ENTITY TYPES (derived from database models)
 // ============================================================================
 
-export type User = Tables<'users'>;
-export type Flashcard = Tables<'flashcards'>;
-export type Category = Tables<'categories'>;
-export type Group = Tables<'groups'>;
-export type SourceText = Tables<'source_texts'>;
-export type FlashcardStats = Tables<'flashcard_stats'>;
+export type User = Tables<"users">;
+export type Flashcard = Tables<"flashcards">;
+export type Category = Tables<"categories">;
+export type Group = Tables<"groups">;
+export type SourceText = Tables<"source_texts">;
+export type FlashcardStats = Tables<"flashcard_stats">;
 
 // Database Insert/Update types
-export type FlashcardInsert = TablesInsert<'flashcards'>;
-export type FlashcardUpdate = TablesUpdate<'flashcards'>;
-export type CategoryInsert = TablesInsert<'categories'>;
-export type CategoryUpdate = TablesUpdate<'categories'>;
-export type GroupInsert = TablesInsert<'groups'>;
-export type GroupUpdate = TablesUpdate<'groups'>;
-export type SourceTextInsert = TablesInsert<'source_texts'>;
+export type FlashcardInsert = TablesInsert<"flashcards">;
+export type FlashcardUpdate = TablesUpdate<"flashcards">;
+export type CategoryInsert = TablesInsert<"categories">;
+export type CategoryUpdate = TablesUpdate<"categories">;
+export type GroupInsert = TablesInsert<"groups">;
+export type GroupUpdate = TablesUpdate<"groups">;
+export type SourceTextInsert = TablesInsert<"source_texts">;
 
 // Enum types
-export type FlashcardStatus = Enums<'flashcard_status'>;
-export type FlashcardType = Enums<'flashcard_type'>;
-export type UserRole = Enums<'user_role'>;
+export type FlashcardStatus = Enums<"flashcard_status">;
+export type FlashcardType = Enums<"flashcard_type">;
+export type UserRole = Enums<"user_role">;
 
 // ============================================================================
 // COMMON DTOs
@@ -136,9 +136,9 @@ export interface FlashcardDTO {
   creation_type: FlashcardType;
   status: FlashcardStatus | null;
   source_text_id: string | null;
-  source_text?: Pick<SourceTextDTO, 'id' | 'content'>;
-  categories: Pick<CategoryDTO, 'id' | 'name'>[];
-  groups: Pick<GroupDTO, 'id' | 'name'>[];
+  source_text?: Pick<SourceTextDTO, "id" | "content">;
+  categories: Pick<CategoryDTO, "id" | "name">[];
+  groups: Pick<GroupDTO, "id" | "name">[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -178,8 +178,8 @@ export interface GeneratedFlashcardDTO {
   id: string;
   front: string;
   back: string;
-  creation_type: 'llm';
-  status: 'draft' | 'pending_review';
+  creation_type: "llm";
+  status: "draft" | "pending_review";
   confidence_score: number;
   generation_time_ms: number;
 }
@@ -268,7 +268,7 @@ export interface GetAvailableModelsCommand {
 
 // Review DTOs
 export interface ReviewFlashcardRequestDTO {
-  action: 'accept' | 'reject' | 'edit';
+  action: "accept" | "reject" | "edit";
   front?: string;
   back?: string;
   status?: FlashcardStatus;
@@ -293,7 +293,7 @@ export interface SourceTextListResponseDTO {
 export interface SourceTextDetailDTO {
   id: string;
   content: string;
-  flashcards: Pick<FlashcardDTO, 'id' | 'front' | 'back' | 'status'>[];
+  flashcards: Pick<FlashcardDTO, "id" | "front" | "back" | "status">[];
   created_at: string | null;
 }
 
@@ -357,8 +357,8 @@ export interface FlashcardQueryParams {
   creation_type?: FlashcardType;
   category_id?: string;
   group_id?: string;
-  sort?: 'created_at' | 'updated_at';
-  order?: 'asc' | 'desc';
+  sort?: "created_at" | "updated_at";
+  order?: "asc" | "desc";
 }
 
 export interface SourceTextQueryParams {
@@ -367,7 +367,7 @@ export interface SourceTextQueryParams {
 }
 
 export interface StatsQueryParams {
-  period?: 'day' | 'week' | 'month' | 'year';
+  period?: "day" | "week" | "month" | "year";
 }
 
 // ============================================================================
@@ -442,7 +442,7 @@ export interface RecordFlashcardStatsCommand {
 export interface ReviewFlashcardCommand {
   flashcardId: string;
   userId: string;
-  action: 'accept' | 'reject' | 'edit';
+  action: "accept" | "reject" | "edit";
   front?: string;
   back?: string;
   status?: FlashcardStatus;
@@ -479,7 +479,7 @@ export interface GetSourceTextByIdCommand {
 // ============================================================================
 
 // Type for creating flashcards from database insert with required user_id
-export type CreateFlashcardData = Omit<FlashcardInsert, 'user_id'> & {
+export type CreateFlashcardData = Omit<FlashcardInsert, "user_id"> & {
   user_id: string;
 };
 
@@ -501,14 +501,14 @@ export interface FilterState {
   creation_type: FlashcardType[];
   category_ids: string[];
   group_ids: string[];
-  sort: 'created_at' | 'updated_at';
-  order: 'asc' | 'desc';
+  sort: "created_at" | "updated_at";
+  order: "asc" | "desc";
 }
 
 // Bulk operation state for flashcards management
 export interface BulkOperationState {
   selectedIds: string[];
-  operation?: 'delete' | 'change_status' | 'assign_categories' | 'assign_groups';
+  operation?: "delete" | "change_status" | "assign_categories" | "assign_groups";
   isProcessing: boolean;
   progress: number;
 }
@@ -518,7 +518,7 @@ export interface GenerationProgressState {
   isGenerating: boolean;
   current: number;
   total: number;
-  status: 'idle' | 'generating' | 'completed' | 'error';
+  status: "idle" | "generating" | "completed" | "error";
   generatedCards: GeneratedFlashcardDTO[];
   startTime?: number;
   estimatedTimeRemaining?: number;
@@ -543,4 +543,4 @@ export interface FlashcardViewModel extends FlashcardDTO {
 
 // Type guards and validation helpers
 export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
-export type OptionalFields<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>; 
+export type OptionalFields<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;

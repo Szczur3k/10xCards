@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { ChatMessage, ChatOptions, JsonSchema } from '../lib/services/openrouter/types';
+import { useState } from "react";
+import type { ChatMessage, ChatOptions, JsonSchema } from "../lib/services/openrouter/types";
 
 interface OpenRouterResponse {
   success: boolean;
@@ -25,37 +25,33 @@ export function useOpenRouter() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const chat = async (
-    messages: ChatMessage[], 
-    model: string,
-    options?: ChatOptions
-  ): Promise<OpenRouterResponse> => {
+  const chat = async (messages: ChatMessage[], model: string, options?: ChatOptions): Promise<OpenRouterResponse> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json' 
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
-          messages, 
+        body: JSON.stringify({
+          messages,
           model,
-          options 
-        })
+          options,
+        }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         const errorData = data as OpenRouterError;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-      
+
       return data as OpenRouterResponse;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
+      const errorMessage = err instanceof Error ? err.message : "Nieznany błąd";
       setError(errorMessage);
       throw err;
     } finally {
@@ -64,42 +60,42 @@ export function useOpenRouter() {
   };
 
   const chatWithSchema = async <T>(
-    messages: ChatMessage[], 
+    messages: ChatMessage[],
     model: string,
     schema: JsonSchema,
     options?: ChatOptions
   ): Promise<{ data: T; usage: any; model: string }> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json' 
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
-          messages, 
+        body: JSON.stringify({
+          messages,
           model,
           schema,
-          options 
-        })
+          options,
+        }),
       });
-      
+
       const responseData = await response.json();
-      
+
       if (!response.ok) {
         const errorData = responseData as OpenRouterError;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-      
+
       return {
         data: responseData.data as T,
         usage: responseData.usage,
-        model: responseData.model
+        model: responseData.model,
       };
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Nieznany błąd';
+      const errorMessage = err instanceof Error ? err.message : "Nieznany błąd";
       setError(errorMessage);
       throw err;
     } finally {
@@ -109,11 +105,11 @@ export function useOpenRouter() {
 
   const clearError = () => setError(null);
 
-  return { 
+  return {
     chat,
-    chatWithSchema, 
-    isLoading, 
+    chatWithSchema,
+    isLoading,
     error,
-    clearError
+    clearError,
   };
-} 
+}

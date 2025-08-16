@@ -3,13 +3,13 @@ import { createSupabaseServerClient } from "../db/supabase.client";
 import { CSRFProtection } from "../lib/middleware/csrf";
 
 // Protected routes that require authentication
-const PROTECTED_ROUTES = ['/flashcards'];
+const PROTECTED_ROUTES = ["/flashcards"];
 
 // Public routes that should redirect authenticated users
-const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password'];
+const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 // API routes that don't need CSRF protection
-const CSRF_EXEMPT_ROUTES = ['/api/auth/refresh'];
+const CSRF_EXEMPT_ROUTES = ["/api/auth/refresh"];
 
 /**
  * Authentication and security middleware
@@ -22,7 +22,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Create Supabase client for this request
   const supabase = createSupabaseServerClient({
     headers: request.headers,
-    cookies: cookies
+    cookies: cookies,
   });
 
   // Add Supabase client to context
@@ -33,19 +33,22 @@ export const onRequest = defineMiddleware(async (context, next) => {
   let user = null;
 
   try {
-    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser();
-    
+    const {
+      data: { user: supabaseUser },
+      error,
+    } = await supabase.auth.getUser();
+
     if (supabaseUser && !error) {
       isAuthenticated = true;
-             user = {
-         id: supabaseUser.id,
-         email: supabaseUser.email!,
-         role: 'user', // Default role
-         created_at: supabaseUser.created_at
-       };
+      user = {
+        id: supabaseUser.id,
+        email: supabaseUser.email!,
+        role: "user", // Default role
+        created_at: supabaseUser.created_at,
+      };
     }
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error("Auth middleware error:", error);
     // Continue with unauthenticated state
   }
 
@@ -54,19 +57,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.isAuthenticated = isAuthenticated;
 
   // Set CSRF token for authenticated users and forms
-  if (isAuthenticated || AUTH_ROUTES.some(route => pathname.startsWith(route))) {
+  if (isAuthenticated || AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
     // Ensure CSRF token exists
     let csrfToken = CSRFProtection.getCSRFToken(cookies);
     if (!csrfToken) {
       csrfToken = CSRFProtection.setCSRFToken(cookies);
     }
-    
+
     // Add CSRF token to locals for use in templates
     context.locals.csrfToken = csrfToken;
   }
 
   // Handle protected routes
-  if (PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+  if (PROTECTED_ROUTES.some((route) => pathname.startsWith(route))) {
     if (!isAuthenticated) {
       // Redirect to login with return URL
       const returnUrl = encodeURIComponent(pathname + url.search);
@@ -75,27 +78,25 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   // Handle auth routes (login/signup/forgot-password/reset-password)
-  if (AUTH_ROUTES.some(route => pathname.startsWith(route))) {
+  if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
     if (isAuthenticated) {
       // Check for return URL
-      const returnUrl = new URL(url).searchParams.get('return');
+      const returnUrl = new URL(url).searchParams.get("return");
       if (returnUrl) {
         try {
           const decodedUrl = decodeURIComponent(returnUrl);
           // Validate return URL is safe (same origin)
-          if (decodedUrl.startsWith('/') && !decodedUrl.startsWith('//')) {
+          if (decodedUrl.startsWith("/") && !decodedUrl.startsWith("//")) {
             return redirect(decodedUrl);
           }
         } catch (error) {
-          console.error('Invalid return URL:', returnUrl);
+          console.error("Invalid return URL:", returnUrl);
         }
       }
       // Default redirect to flashcards
-      return redirect('/flashcards');
+      return redirect("/flashcards");
     }
   }
 
   return next();
 });
-
-

@@ -1,6 +1,6 @@
-import type { APIRoute } from 'astro';
-import type { ErrorResponseDTO } from '../../../types';
-import { AuthService } from '../../../lib/services/auth.service';
+import type { APIRoute } from "astro";
+import type { ErrorResponseDTO } from "../../../types";
+import { AuthService } from "../../../lib/services/auth.service";
 
 export const prerender = false;
 
@@ -12,52 +12,48 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   try {
     // Create AuthService instance
     const authService = new AuthService({ headers: request.headers, cookies });
-    
+
     // Execute signout through service
-    await authService.signout({ accessToken: '' }); // Token will be handled by Supabase internally
+    await authService.signout({ accessToken: "" }); // Token will be handled by Supabase internally
 
     // Return success response
     return new Response(
       JSON.stringify({
-        message: 'Wylogowano pomyślnie',
-        success: true
+        message: "Wylogowano pomyślnie",
+        success: true,
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       }
     );
-
   } catch (error: any) {
-    console.error('Signout endpoint error:', error);
+    console.error("Signout endpoint error:", error);
 
     // Handle structured errors from service
-    if (error && typeof error === 'object' && 'type' in error) {
+    if (error && typeof error === "object" && "type" in error) {
       const errorResponse: ErrorResponseDTO = {
         error: error.type,
         message: error.message,
-        details: error.details
+        details: error.details,
       };
 
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: error.statusCode || 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+      return new Response(JSON.stringify(errorResponse), {
+        status: error.statusCode || 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // For signout, we should always succeed even if there are errors
     // This prevents users from being stuck in a logged-in state
     return new Response(
       JSON.stringify({
-        message: 'Wylogowano pomyślnie',
-        success: true
+        message: "Wylogowano pomyślnie",
+        success: true,
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       }
     );
   }
@@ -67,15 +63,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 export const GET: APIRoute = async () => {
   return new Response(
     JSON.stringify({
-      error: 'METHOD_NOT_ALLOWED',
-      message: 'Metoda GET nie jest obsługiwana dla tego endpointu'
+      error: "METHOD_NOT_ALLOWED",
+      message: "Metoda GET nie jest obsługiwana dla tego endpointu",
     } as ErrorResponseDTO),
     {
       status: 405,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Allow': 'POST'
-      }
+      headers: {
+        "Content-Type": "application/json",
+        Allow: "POST",
+      },
     }
   );
-}; 
+};

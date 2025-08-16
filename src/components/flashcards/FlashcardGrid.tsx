@@ -1,6 +1,6 @@
-import React from 'react';
-import { FlashcardCard } from './FlashcardCard';
-import type { FlashcardViewModel } from '../../types';
+import React from "react";
+import { FlashcardCard } from "./FlashcardCard";
+import type { FlashcardViewModel } from "../../types";
 
 interface FlashcardGridProps {
   flashcards: FlashcardViewModel[];
@@ -32,9 +32,7 @@ function EmptyState() {
   return (
     <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
       <div className="text-6xl mb-4">🎯</div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-        Brak fiszek
-      </h3>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Brak fiszek</h3>
       <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
         Nie masz jeszcze żadnych fiszek. Rozpocznij naukę tworząc nowe fiszki ręcznie lub generując je przez AI.
       </p>
@@ -55,13 +53,7 @@ function EmptyState() {
  * Implements CSS Grid with responsive breakpoints and loading states
  * Supports card selection, editing, and deletion
  */
-export function FlashcardGrid({
-  flashcards,
-  loading,
-  onCardSelect,
-  onCardEdit,
-  onCardDelete
-}: FlashcardGridProps) {
+export function FlashcardGrid({ flashcards, loading, onCardSelect, onCardEdit, onCardDelete }: FlashcardGridProps) {
   // Show loading skeletons
   if (loading) {
     return (
@@ -99,4 +91,4 @@ export function FlashcardGrid({
       </div>
     </div>
   );
-} 
+}

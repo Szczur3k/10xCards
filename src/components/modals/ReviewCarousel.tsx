@@ -1,18 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Button } from '../ui/button';
-import { 
-  X, 
-  ChevronLeft, 
-  ChevronRight, 
-  Check, 
-  RotateCcw,
-  Save,
-  Trash2
-} from 'lucide-react';
-import { useModal } from './ModalSystem';
-import { useToast } from '../providers/ToastProvider';
-import { ErrorHandlerService } from '../../lib/services/error-handler.service';
-import type { GeneratedFlashcardDTO } from '../../types';
+import React, { useState, useCallback, useEffect } from "react";
+import { Button } from "../ui/button";
+import { X, ChevronLeft, ChevronRight, Check, RotateCcw, Save, Trash2 } from "lucide-react";
+import { useModal } from "./ModalSystem";
+import { useToast } from "../providers/ToastProvider";
+import { ErrorHandlerService } from "../../lib/services/error-handler.service";
+import type { GeneratedFlashcardDTO } from "../../types";
 
 interface ReviewCarouselProps {
   isOpen: boolean;
@@ -26,12 +18,7 @@ interface ReviewCarouselProps {
  * Allows users to review, edit, and accept/reject flashcards
  * Implements carousel navigation and bulk actions
  */
-export function ReviewCarousel({ 
-  isOpen, 
-  flashcards, 
-  onClose, 
-  onComplete 
-}: ReviewCarouselProps) {
+export function ReviewCarousel({ isOpen, flashcards, onClose, onComplete }: ReviewCarouselProps) {
   // All hooks must be called before any conditional returns
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -54,8 +41,6 @@ export function ReviewCarousel({
   const acceptedCount = acceptedCards.size;
   const rejectedCount = rejectedCards.size;
 
-
-
   const handleNext = useCallback(() => {
     if (currentIndex < totalCards - 1) {
       setCurrentIndex(currentIndex + 1);
@@ -77,13 +62,13 @@ export function ReviewCarousel({
   const handleAccept = useCallback(() => {
     if (!currentCard) return;
     const cardId = currentCard.id;
-    setAcceptedCards(prev => new Set(prev).add(cardId));
-    setRejectedCards(prev => {
+    setAcceptedCards((prev) => new Set(prev).add(cardId));
+    setRejectedCards((prev) => {
       const newSet = new Set(prev);
       newSet.delete(cardId);
       return newSet;
     });
-    
+
     // Auto-advance to next card
     if (currentIndex < totalCards - 1) {
       handleNext();
@@ -93,13 +78,13 @@ export function ReviewCarousel({
   const handleReject = useCallback(() => {
     if (!currentCard) return;
     const cardId = currentCard.id;
-    setRejectedCards(prev => new Set(prev).add(cardId));
-    setAcceptedCards(prev => {
+    setRejectedCards((prev) => new Set(prev).add(cardId));
+    setAcceptedCards((prev) => {
       const newSet = new Set(prev);
       newSet.delete(cardId);
       return newSet;
     });
-    
+
     // Auto-advance to next card
     if (currentIndex < totalCards - 1) {
       handleNext();
@@ -108,34 +93,34 @@ export function ReviewCarousel({
 
   const handleRegenerate = useCallback(async () => {
     if (!currentCard) return;
-    
+
     setIsSaving(true);
-    
+
     // KROK 1: Stwórz tymczasową fiszkę z tekstem ładowania
     const tempCard = {
       ...currentCard,
-      front: '🔄 Regeneruję pytanie...',
-      back: '🔄 Regeneruję odpowiedź...'
+      front: "🔄 Regeneruję pytanie...",
+      back: "🔄 Regeneruję odpowiedź...",
     };
-    
+
     // KROK 2: Nadpisz aktualną fiszkę tymczasową
     const tempFlashcards = [...localFlashcards];
     tempFlashcards[currentIndex] = tempCard;
     setLocalFlashcards(tempFlashcards);
-    
+
     try {
-      const response = await fetch('/api/flashcards/regenerate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/flashcards/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source_text: sharedData.sourceText || 'Tekst źródłowy',
+          source_text: sharedData.sourceText || "Tekst źródłowy",
           rejected_flashcard: {
             front: currentCard.front,
-            back: currentCard.back
+            back: currentCard.back,
           },
           category_ids: sharedData.selectedCategories,
-          group_ids: sharedData.selectedGroups
-        })
+          group_ids: sharedData.selectedGroups,
+        }),
       });
 
       if (!response.ok) {
@@ -144,44 +129,43 @@ export function ReviewCarousel({
       }
 
       const result = await response.json();
-      
+
       // KROK 3: Nadpisz tymczasową fiszkę prawdziwymi danymi
       const finalFlashcards = [...tempFlashcards];
       const finalCard = {
         ...result.flashcard,
-        id: currentCard.id // Preserve original ID to maintain status
+        id: currentCard.id, // Preserve original ID to maintain status
       };
       finalFlashcards[currentIndex] = finalCard;
-      
+
       // Update local state
       setLocalFlashcards(finalFlashcards);
-      
+
       // Reset card status to pending (remove from rejected)
-      setRejectedCards(prev => {
+      setRejectedCards((prev) => {
         const newSet = new Set(prev);
         newSet.delete(currentCard.id);
         return newSet;
       });
-      
+
       addToast({
-        type: 'success',
-        title: 'Fiszka zregenerowana!',
-        description: 'Wygenerowano nową wersję fiszki.'
+        type: "success",
+        title: "Fiszka zregenerowana!",
+        description: "Wygenerowano nową wersję fiszki.",
       });
-      
     } catch (error) {
-      console.error('Error regenerating flashcard:', error);
-      
+      console.error("Error regenerating flashcard:", error);
+
       // W przypadku błędu, przywróć oryginalną fiszkę
       const restoredFlashcards = [...localFlashcards];
       restoredFlashcards[currentIndex] = currentCard;
       setLocalFlashcards(restoredFlashcards);
-      
+
       const errorMessage = ErrorHandlerService.handleError(error);
       addToast({
-        type: 'error',
-        title: 'Błąd regeneracji',
-        description: errorMessage
+        type: "error",
+        title: "Błąd regeneracji",
+        description: errorMessage,
       });
     } finally {
       setIsSaving(false);
@@ -189,13 +173,13 @@ export function ReviewCarousel({
   }, [currentCard, currentIndex, localFlashcards, sharedData, addToast]);
 
   const handleAcceptAll = useCallback(() => {
-    const allIds = localFlashcards.map(card => card.id);
+    const allIds = localFlashcards.map((card) => card.id);
     setAcceptedCards(new Set(allIds));
     setRejectedCards(new Set());
   }, [localFlashcards]);
 
   const handleRejectAll = useCallback(() => {
-    const allIds = localFlashcards.map(card => card.id);
+    const allIds = localFlashcards.map((card) => card.id);
     setRejectedCards(new Set(allIds));
     setAcceptedCards(new Set());
   }, [localFlashcards]);
@@ -203,32 +187,32 @@ export function ReviewCarousel({
   const handleSave = useCallback(async () => {
     if (acceptedCards.size === 0) {
       addToast({
-        type: 'warning',
-        title: 'Brak zaakceptowanych fiszek',
-        description: 'Musisz zaakceptować przynajmniej jedną fiszkę przed zapisaniem.'
+        type: "warning",
+        title: "Brak zaakceptowanych fiszek",
+        description: "Musisz zaakceptować przynajmniej jedną fiszkę przed zapisaniem.",
       });
       return;
     }
 
     setIsSaving(true);
     try {
-      const acceptedFlashcards = localFlashcards.filter(card => acceptedCards.has(card.id));
-      
+      const acceptedFlashcards = localFlashcards.filter((card) => acceptedCards.has(card.id));
+
       // Prepare request data for accept API
       const requestData = {
-        flashcards: acceptedFlashcards.map(card => ({
+        flashcards: acceptedFlashcards.map((card) => ({
           front: card.front,
           back: card.back,
-          temp_id: card.id
+          temp_id: card.id,
         })),
         category_ids: sharedData.selectedCategories,
-        group_ids: sharedData.selectedGroups
+        group_ids: sharedData.selectedGroups,
       };
 
-      const response = await fetch('/api/flashcards/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
+      const response = await fetch("/api/flashcards/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
@@ -237,24 +221,23 @@ export function ReviewCarousel({
       }
 
       const result = await response.json();
-      
+
       addToast({
-        type: 'success',
-        title: 'Fiszki zapisane!',
-        description: `Pomyślnie zapisano ${result.accepted_count} fiszek.`
+        type: "success",
+        title: "Fiszki zapisane!",
+        description: `Pomyślnie zapisano ${result.accepted_count} fiszek.`,
       });
 
       // Clear shared data and complete
       clearSharedData();
       onComplete();
-      
     } catch (error) {
-      console.error('Error saving flashcards:', error);
+      console.error("Error saving flashcards:", error);
       const errorMessage = ErrorHandlerService.handleError(error);
       addToast({
-        type: 'error',
-        title: 'Błąd zapisywania',
-        description: errorMessage
+        type: "error",
+        title: "Błąd zapisywania",
+        description: errorMessage,
       });
     } finally {
       setIsSaving(false);
@@ -262,9 +245,9 @@ export function ReviewCarousel({
   }, [acceptedCards, localFlashcards, sharedData, addToast, clearSharedData, onComplete]);
 
   const getCardStatus = (cardId: string) => {
-    if (acceptedCards.has(cardId)) return 'accepted';
-    if (rejectedCards.has(cardId)) return 'rejected';
-    return 'pending';
+    if (acceptedCards.has(cardId)) return "accepted";
+    if (rejectedCards.has(cardId)) return "rejected";
+    return "pending";
   };
 
   // Conditional rendering after all hooks
@@ -278,16 +261,10 @@ export function ReviewCarousel({
           <div>
             <h2 className="text-lg font-semibold">Przegląd wygenerowanych fiszek</h2>
             <p className="text-sm text-muted-foreground">
-              Fiszka {currentIndex + 1} z {totalCards} • 
-              Zaakceptowane: {acceptedCount} • 
-              Odrzucone: {rejectedCount}
+              Fiszka {currentIndex + 1} z {totalCards} • Zaakceptowane: {acceptedCount} • Odrzucone: {rejectedCount}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-          >
+          <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -296,11 +273,10 @@ export function ReviewCarousel({
         <div className="p-6 flex-1">
           <div className="max-w-2xl mx-auto">
             {/* Card */}
-            <div 
-              className="relative w-full h-64 mb-6 cursor-pointer"
-              onClick={handleFlip}
-            >
-              <div className={`absolute inset-0 w-full h-full transition-transform duration-500 preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+            <div className="relative w-full h-64 mb-6 cursor-pointer" onClick={handleFlip}>
+              <div
+                className={`absolute inset-0 w-full h-full transition-transform duration-500 preserve-3d ${isFlipped ? "rotate-y-180" : ""}`}
+              >
                 {/* Front */}
                 <div className="absolute inset-0 w-full h-full backface-hidden">
                   <div className="w-full h-full bg-card border border-border rounded-lg p-6 flex items-center justify-center shadow-lg">
@@ -310,7 +286,7 @@ export function ReviewCarousel({
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Back */}
                 <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
                   <div className="w-full h-full bg-card border border-border rounded-lg p-6 flex items-center justify-center shadow-lg">
@@ -325,57 +301,50 @@ export function ReviewCarousel({
 
             {/* Card Status */}
             <div className="text-center mb-6">
-              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                getCardStatus(currentCard.id) === 'accepted' 
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                  : getCardStatus(currentCard.id) === 'rejected'
-                  ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-              }`}>
-                {getCardStatus(currentCard.id) === 'accepted' && <Check className="w-4 h-4" />}
-                {getCardStatus(currentCard.id) === 'rejected' && <X className="w-4 h-4" />}
-                {getCardStatus(currentCard.id) === 'pending' && <RotateCcw className="w-4 h-4" />}
-                {getCardStatus(currentCard.id) === 'accepted' ? 'Zaakceptowana' : 
-                 getCardStatus(currentCard.id) === 'rejected' ? 'Odrzucona' : 'Oczekuje'}
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
+                  getCardStatus(currentCard.id) === "accepted"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                    : getCardStatus(currentCard.id) === "rejected"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                      : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                }`}
+              >
+                {getCardStatus(currentCard.id) === "accepted" && <Check className="w-4 h-4" />}
+                {getCardStatus(currentCard.id) === "rejected" && <X className="w-4 h-4" />}
+                {getCardStatus(currentCard.id) === "pending" && <RotateCcw className="w-4 h-4" />}
+                {getCardStatus(currentCard.id) === "accepted"
+                  ? "Zaakceptowana"
+                  : getCardStatus(currentCard.id) === "rejected"
+                    ? "Odrzucona"
+                    : "Oczekuje"}
               </div>
             </div>
 
             {/* Navigation */}
             <div className="flex items-center justify-between mb-6">
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentIndex === 0}
-                className="gap-2"
-              >
+              <Button variant="outline" onClick={handlePrevious} disabled={currentIndex === 0} className="gap-2">
                 <ChevronLeft className="w-4 h-4" />
                 Poprzednia
               </Button>
 
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleReject}
-                  className="gap-2 text-red-600 hover:text-red-700"
-                >
+                <Button variant="outline" onClick={handleReject} className="gap-2 text-red-600 hover:text-red-700">
                   <Trash2 className="w-4 h-4" />
                   Odrzuć
                 </Button>
-                {getCardStatus(currentCard.id) === 'rejected' && (
+                {getCardStatus(currentCard.id) === "rejected" && (
                   <Button
                     variant="outline"
                     onClick={handleRegenerate}
                     disabled={isSaving}
                     className="gap-2 text-blue-600 hover:text-blue-700"
                   >
-                    <RotateCcw className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
-                    {isSaving ? 'Regeneruję...' : 'Regeneruj'}
+                    <RotateCcw className={`w-4 h-4 ${isSaving ? "animate-spin" : ""}`} />
+                    {isSaving ? "Regeneruję..." : "Regeneruj"}
                   </Button>
                 )}
-                <Button
-                  onClick={handleAccept}
-                  className="gap-2 bg-green-600 hover:bg-green-700"
-                >
+                <Button onClick={handleAccept} className="gap-2 bg-green-600 hover:bg-green-700">
                   <Check className="w-4 h-4" />
                   Akceptuj
                 </Button>
@@ -397,49 +366,33 @@ export function ReviewCarousel({
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 p-6 border-t border-border">
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleAcceptAll}
-              className="gap-2"
-            >
+            <Button variant="outline" onClick={handleAcceptAll} className="gap-2">
               <Check className="w-4 h-4" />
               Akceptuj wszystkie
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleRejectAll}
-              className="gap-2 text-red-600 hover:text-red-700"
-            >
+            <Button variant="outline" onClick={handleRejectAll} className="gap-2 text-red-600 hover:text-red-700">
               <Trash2 className="w-4 h-4" />
               Odrzuć wszystkie
             </Button>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={() => {
-                console.log('Anuluj clicked, calling onClose');
+                console.log("Anuluj clicked, calling onClose");
                 onClose();
               }}
             >
               Anuluj
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={acceptedCards.size === 0 || isSaving}
-              className="gap-2"
-            >
-              {isSaving ? (
-                <RotateCcw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              {isSaving ? 'Zapisywanie...' : `Zapisz fiszki (${acceptedCount})`}
+            <Button onClick={handleSave} disabled={acceptedCards.size === 0 || isSaving} className="gap-2">
+              {isSaving ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {isSaving ? "Zapisywanie..." : `Zapisz fiszki (${acceptedCount})`}
             </Button>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

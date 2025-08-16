@@ -1,49 +1,52 @@
-import { useState, useCallback, useRef } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { useToast } from '../components/providers/ToastProvider';
-import type { 
-  GenerateFlashcardsRequestDTO, 
+import { useState, useCallback, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "../components/providers/ToastProvider";
+import type {
+  GenerateFlashcardsRequestDTO,
   GeneratedFlashcardDTO,
   AIModelDTO,
-  GenerateFlashcardsResponseDTO
-} from '../types';
-import React from 'react';
-import { ErrorHandlerService } from '../lib/services/error-handler.service';
+  GenerateFlashcardsResponseDTO,
+} from "../types";
+import React from "react";
+import { ErrorHandlerService } from "../lib/services/error-handler.service";
 
 // Simple API functions
 const api = {
-  generateFlashcards: async (request: GenerateFlashcardsRequestDTO, options?: { signal?: AbortSignal }): Promise<GenerateFlashcardsResponseDTO> => {
-    const response = await fetch('/api/flashcards/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+  generateFlashcards: async (
+    request: GenerateFlashcardsRequestDTO,
+    options?: { signal?: AbortSignal }
+  ): Promise<GenerateFlashcardsResponseDTO> => {
+    const response = await fetch("/api/flashcards/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
       signal: options?.signal,
     });
-    
+
     if (!response.ok) {
       const errorMessage = await ErrorHandlerService.parseApiError(response);
       throw new Error(errorMessage);
     }
-    
+
     return response.json();
   },
-  
+
   getAvailableModels: async (): Promise<AIModelDTO[]> => {
-    const response = await fetch('/api/flashcards/models');
-    
+    const response = await fetch("/api/flashcards/models");
+
     if (!response.ok) {
       const errorMessage = await ErrorHandlerService.parseApiError(response);
       throw new Error(errorMessage);
     }
-    
+
     const data = await response.json();
     return data.models || [];
-  }
+  },
 };
 
 interface GenerationState {
   isGenerating: boolean;
-  status: 'idle' | 'generating' | 'completed' | 'error';
+  status: "idle" | "generating" | "completed" | "error";
   generatedCards: GeneratedFlashcardDTO[];
   error?: string;
 }
@@ -56,9 +59,9 @@ interface GenerationState {
 export function useAIGeneration() {
   const [generationState, setGenerationState] = useState<GenerationState>({
     isGenerating: false,
-    status: 'idle',
+    status: "idle",
     generatedCards: [],
-    error: undefined
+    error: undefined,
   });
 
   const [availableModels, setAvailableModels] = useState<AIModelDTO[]>([]);
@@ -74,15 +77,15 @@ export function useAIGeneration() {
       setIsLoadingModels(true);
       const models = await api.getAvailableModels();
       setAvailableModels(models);
-      
+
       const defaultModel = models.find((m: AIModelDTO) => m.is_default) || models[0];
       setDefaultModel(defaultModel);
     } catch (error) {
-      console.error('Error loading models:', error);
+      console.error("Error loading models:", error);
       const errorMessage = ErrorHandlerService.handleError(error);
       addToast({
-        type: 'error',
-        title: 'Błąd ładowania modeli',
+        type: "error",
+        title: "Błąd ładowania modeli",
         description: errorMessage,
       });
     } finally {
@@ -98,18 +101,18 @@ export function useAIGeneration() {
   // Validate source text
   const validateSourceText = useCallback((text: string) => {
     const errors: string[] = [];
-    
+
     if (!text || text.trim().length === 0) {
-      errors.push('Tekst źródłowy jest wymagany');
+      errors.push("Tekst źródłowy jest wymagany");
     } else if (text.length < 1000) {
-      errors.push('Tekst źródłowy musi mieć co najmniej 1,000 znaków');
+      errors.push("Tekst źródłowy musi mieć co najmniej 1,000 znaków");
     } else if (text.length > 10000) {
-      errors.push('Tekst źródłowy nie może przekraczać 10,000 znaków');
+      errors.push("Tekst źródłowy nie może przekraczać 10,000 znaków");
     }
-    
+
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }, []);
 
@@ -118,85 +121,88 @@ export function useAIGeneration() {
     mutationFn: async (request: GenerateFlashcardsRequestDTO) => {
       // Create abort controller for this request
       abortControllerRef.current = new AbortController();
-      
+
       return await api.generateFlashcards(request, {
-        signal: abortControllerRef.current.signal
+        signal: abortControllerRef.current.signal,
       });
     },
     onMutate: () => {
       setGenerationState({
         isGenerating: true,
-        status: 'generating',
+        status: "generating",
         generatedCards: [],
-        error: undefined
+        error: undefined,
       });
     },
     onSuccess: (response) => {
-      console.log('Generation completed successfully:', response);
+      console.log("Generation completed successfully:", response);
       setGenerationState({
         isGenerating: false,
-        status: 'completed',
+        status: "completed",
         generatedCards: response.flashcards,
-        error: undefined
+        error: undefined,
       });
-      
+
       addToast({
-        type: 'success',
-        title: 'Fiszki wygenerowane!',
+        type: "success",
+        title: "Fiszki wygenerowane!",
         description: `Pomyślnie wygenerowano ${response.flashcards.length} fiszek`,
       });
     },
     onError: (error) => {
-      console.error('Generation failed:', error);
+      console.error("Generation failed:", error);
       const errorMessage = ErrorHandlerService.handleError(error);
-      
+
       setGenerationState({
         isGenerating: false,
-        status: 'error',
+        status: "error",
         generatedCards: [],
-        error: errorMessage
+        error: errorMessage,
       });
 
       addToast({
-        type: 'error',
-        title: 'Błąd generowania',
+        type: "error",
+        title: "Błąd generowania",
         description: errorMessage,
       });
-    }
+    },
   });
 
   // Start generation
-  const startGeneration = useCallback((request: GenerateFlashcardsRequestDTO) => {
-    // Validate request
-    if (!request.source_text || request.source_text.trim().length < 1000) {
-      addToast({
-        type: 'error',
-        title: 'Tekst źródłowy za krótki',
-        description: 'Tekst źródłowy musi mieć co najmniej 1,000 znaków',
-      });
-      return;
-    }
+  const startGeneration = useCallback(
+    (request: GenerateFlashcardsRequestDTO) => {
+      // Validate request
+      if (!request.source_text || request.source_text.trim().length < 1000) {
+        addToast({
+          type: "error",
+          title: "Tekst źródłowy za krótki",
+          description: "Tekst źródłowy musi mieć co najmniej 1,000 znaków",
+        });
+        return;
+      }
 
-    if (request.source_text.length > 10000) {
-      addToast({
-        type: 'error',
-        title: 'Tekst źródłowy za długi',
-        description: 'Tekst źródłowy nie może przekraczać 10,000 znaków',
-      });
-      return;
-    }
+      if (request.source_text.length > 10000) {
+        addToast({
+          type: "error",
+          title: "Tekst źródłowy za długi",
+          description: "Tekst źródłowy nie może przekraczać 10,000 znaków",
+        });
+        return;
+      }
 
-    if (request.max_flashcards && (request.max_flashcards < 1 || request.max_flashcards > 100)) {
-      addToast({
-        type: 'error',
-        title: 'Nieprawidłowa liczba fiszek',
-        description: 'Liczba fiszek musi być między 1 a 100',
-      });
-      return;
-    }
+      if (request.max_flashcards && (request.max_flashcards < 1 || request.max_flashcards > 100)) {
+        addToast({
+          type: "error",
+          title: "Nieprawidłowa liczba fiszek",
+          description: "Liczba fiszek musi być między 1 a 100",
+        });
+        return;
+      }
 
-    generateMutation.mutate(request);
-  }, [generateMutation, addToast]);
+      generateMutation.mutate(request);
+    },
+    [generateMutation, addToast]
+  );
 
   // Cancel generation
   const cancelGeneration = useCallback(() => {
@@ -204,12 +210,12 @@ export function useAIGeneration() {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
+
     setGenerationState({
       isGenerating: false,
-      status: 'idle',
+      status: "idle",
       generatedCards: [],
-      error: undefined
+      error: undefined,
     });
   }, []);
 
@@ -217,9 +223,9 @@ export function useAIGeneration() {
   const clearResults = useCallback(() => {
     setGenerationState({
       isGenerating: false,
-      status: 'idle',
+      status: "idle",
       generatedCards: [],
-      error: undefined
+      error: undefined,
     });
   }, []);
 
@@ -228,23 +234,23 @@ export function useAIGeneration() {
     availableModels,
     defaultModel,
     isLoadingModels,
-    
+
     // Validation
     validateSourceText,
-    
+
     // Generation state
     isGenerating: generationState.isGenerating,
     generationStatus: generationState.status,
     generatedCards: generationState.generatedCards,
     hasResults: generationState.generatedCards.length > 0,
     error: generationState.error,
-    
+
     // Actions
     startGeneration,
     cancelGeneration,
     clearResults,
-    
+
     // Mutation state
-    isLoading: generateMutation.isPending
+    isLoading: generateMutation.isPending,
   };
-} 
+}

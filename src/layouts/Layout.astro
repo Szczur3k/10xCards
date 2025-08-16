@@ -20,14 +20,14 @@ const csrfToken = Astro.locals.csrfToken;
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
-    
+
     <!-- CSRF Token for client-side requests -->
     {csrfToken && <meta name="csrf-token" content={csrfToken} />}
   </head>
   <body>
     <!-- User data for client-side auth context -->
     <script id="user-data" type="application/json" set:html={JSON.stringify(user)} />
-    
+
     <slot />
   </body>
 </html>
