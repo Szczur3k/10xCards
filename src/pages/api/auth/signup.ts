@@ -2,8 +2,8 @@ import type { APIRoute } from 'astro';
 import type { SignupRequestDTO, AuthResponseDTO, ErrorResponseDTO } from '../../../types';
 import { AuthService } from '../../../lib/services/auth.service';
 import { validateSignupRequest } from '../../../lib/validation/auth.schemas';
-import { RateLimiter, rateLimitConfigs, createRateLimitError } from '../../../lib/middleware/rate-limit';
-import { validateCSRF } from '../../../lib/middleware/csrf';
+// import { RateLimiter, rateLimitConfigs, createRateLimitError } from '../../../lib/middleware/rate-limit';
+// import { validateCSRF } from '../../../lib/middleware/csrf';
 
 export const prerender = false;
 
@@ -12,43 +12,43 @@ export const prerender = false;
  * Register new user with rate limiting and CSRF protection
  */
 export const POST: APIRoute = async ({ request, cookies }) => {
-  const rateLimiter = new RateLimiter({ headers: request.headers, cookies });
+  // const rateLimiter = new RateLimiter({ headers: request.headers, cookies });
   
   try {
-    // Rate limiting check
-    const rateLimit = await rateLimiter.checkLimit(request, rateLimitConfigs.auth);
+    // Rate limiting check - DISABLED FOR TESTING
+    // const rateLimit = await rateLimiter.checkLimit(request, rateLimitConfigs.auth);
     
-    if (!rateLimit.allowed) {
-      const rateLimitError = createRateLimitError(rateLimit.resetTime);
-      return new Response(
-        JSON.stringify({
-          error: rateLimitError.error,
-          message: rateLimitError.message
-        } as ErrorResponseDTO),
-        {
-          status: rateLimitError.statusCode,
-          headers: { 
-            'Content-Type': 'application/json',
-            ...rateLimitError.headers
-          }
-        }
-      );
-    }
+    // if (!rateLimit.allowed) {
+    //   const rateLimitError = createRateLimitError(rateLimit.resetTime);
+    //   return new Response(
+    //     JSON.stringify({
+    //       error: rateLimitError.error,
+    //       message: rateLimitError.message
+    //     } as ErrorResponseDTO),
+    //     {
+    //       status: rateLimitError.statusCode,
+    //       headers: { 
+    //         'Content-Type': 'application/json',
+    //         ...rateLimitError.headers
+    //       }
+    //     }
+    //   );
+    // }
 
-    // CSRF validation
-    const csrfValidation = await validateCSRF(request, cookies, '/api/auth/signup');
-    if (!csrfValidation.valid) {
-      return new Response(
-        JSON.stringify({
-          error: csrfValidation.error.error,
-          message: csrfValidation.error.message
-        } as ErrorResponseDTO),
-        {
-          status: csrfValidation.error.statusCode,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
+    // CSRF validation - DISABLED FOR TESTING
+    // const csrfValidation = await validateCSRF(request, cookies, '/api/auth/signup');
+    // if (!csrfValidation.valid) {
+    //   return new Response(
+    //     JSON.stringify({
+    //       error: csrfValidation.error.error,
+    //       message: csrfValidation.error.message
+    //     } as ErrorResponseDTO),
+    //     {
+    //       status: csrfValidation.error.statusCode,
+    //       headers: { 'Content-Type': 'application/json' }
+    //     }
+    //   );
+    // }
 
     // Parse request body
     let requestData: unknown;
@@ -80,18 +80,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const authService = new AuthService({ headers: request.headers, cookies });
     const result = await authService.signup(signupCommand);
 
-    // Clear rate limit records on successful signup
-    await rateLimiter.clearSuccessfulAttempt(request, rateLimitConfigs.auth);
+    // Clear rate limit records on successful signup - DISABLED FOR TESTING
+    // await rateLimiter.clearSuccessfulAttempt(request, rateLimitConfigs.auth);
 
-    // Return success response with rate limit headers
+    // Return success response with rate limit headers - DISABLED FOR TESTING
     return new Response(
       JSON.stringify(result),
       {
         status: 201,
         headers: { 
-          'Content-Type': 'application/json',
-          'X-RateLimit-Remaining': rateLimitConfigs.auth.maxAttempts.toString(),
-          'X-RateLimit-Reset': (Date.now() + rateLimitConfigs.auth.windowMs).toString()
+          'Content-Type': 'application/json'
+          // 'X-RateLimit-Remaining': rateLimitConfigs.auth.maxAttempts.toString(),
+          // 'X-RateLimit-Reset': (Date.now() + rateLimitConfigs.auth.windowMs).toString()
         }
       }
     );

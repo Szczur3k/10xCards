@@ -73,7 +73,7 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search flashcards..."
+              placeholder="Szukaj fiszek..."
               value={searchQuery}
               onChange={handleSearchChange}
               className="pl-10"
@@ -119,7 +119,7 @@ export function Header({ onSearch, onGenerateAI, onAddManual, selectedCount = 0,
             className="gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Generate AI
+            Generuj fiszki AI
           </Button>
 
           {/* Add Manual Button */}

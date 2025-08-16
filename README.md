@@ -44,6 +44,24 @@
 - `npm run lint:fix` - Automatically fix ESLint issues
 - `npm run format` - Format the codebase using Prettier
 
+## Testing Technologies
+
+### Unit & Component Testing
+- **Vitest** - Fast unit testing framework for Vite-based projects
+- **React Testing Library** - Testing utilities for React components focusing on user behavior
+
+### End-to-End & Integration Testing
+- **Playwright** - Cross-browser testing framework for E2E and API testing
+- **Cypress** - Alternative E2E testing solution (optional)
+
+### API Testing
+- **Postman/Insomnia** - Manual API testing and documentation
+- **Supertest** - HTTP assertion library for testing API endpoints
+
+### Performance Testing
+- **k6** - Load testing and performance monitoring
+- **Playwright Tracing** - Performance analysis and debugging
+
 ## Project Scope
 
 - **AI Flashcard Generation:** Generate flashcards using AI with character limits (front: 200, back: 500). Maximum generation time of 2 seconds per flashcard.
@@ -65,34 +83,3 @@ This project is currently in its Minimum Viable Product (MVP) stage. Core functi
 
 This project is licensed under the MIT License.
 
-
----
----
----
-
-Strony Astro (Server-Side):
-/login.astro - strona logowania z formularzem i obsługą CSRF
-/signup.astro - strona rejestracji z walidacją hasła
-/forgot-password.astro - strona resetowania hasła
-/reset-password.astro - strona ustawiania nowego hasła
-/flashcards.astro - chroniona strona główna aplikacji
-/index.astro - przekierowanie na podstawie stanu autentykacji
-
-Komponenty React (Client-Side):
-AuthProvider.tsx - kontekst autentykacji z login/logout
-Header.tsx - nagłówek z menu użytkownika i przyciskiem wylogowania
-Sidebar.tsx - pasek boczny z przyciskiem wylogowania
-AppLayout.tsx - główny layout aplikacji
-FlashcardsListView.tsx - główny kontener z providerami
-
-API Endpoints:
-/api/auth/signin - logowanie z rate limiting i CSRF
-/api/auth/signup - rejestracja z walidacją
-/api/auth/signout - wylogowanie
-/api/auth/forgot-password - reset hasła
-
-Middleware i Serwisy:
-middleware/index.ts - ochrona tras i zarządzanie sesją
-AuthService - integracja z Supabase
-CSRFProtection - ochrona przed atakami CSRF
-RateLimiter - ograniczenia prób autentykacji

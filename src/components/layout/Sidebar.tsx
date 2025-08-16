@@ -57,7 +57,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
           className="w-full justify-start gap-2"
         >
           {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+          {isDarkMode ? 'Jasny motyw' : 'Ciemny motyw'}
         </Button>
       </div>
 
@@ -70,7 +70,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
             className="w-full justify-start gap-2"
           >
             <BookOpen className="h-4 w-4" />
-            Flashcards
+            Fiszki
           </Button>
           <Button
             variant="ghost"
@@ -78,7 +78,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
             className="w-full justify-start gap-2"
           >
             <BarChart3 className="h-4 w-4" />
-            Statistics
+            Statystyki
           </Button>
         </div>
       </nav>
@@ -92,7 +92,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
               size="sm"
               className="w-full justify-between p-2"
             >
-              <span className="font-medium">Filters</span>
+              <span className="font-medium">Filtry</span>
               <ChevronDown className={`h-4 w-4 transition-transform ${filtersExpanded ? 'rotate-180' : ''}`} />
             </Button>
           </CollapsibleTrigger>
@@ -114,7 +114,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                         updateStatus(newStatus);
                       }}
                     />
-                    Draft
+                    Szkic
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input 
@@ -128,7 +128,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                         updateStatus(newStatus);
                       }}
                     />
-                    Published
+                    Opublikowane
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input 
@@ -142,7 +142,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                         updateStatus(newStatus);
                       }}
                     />
-                    Archived
+                    Archiwalne
                   </label>
                 </div>
               </CardContent>
@@ -165,7 +165,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                         updateCreationType(newCreationType);
                       }}
                     />
-                    🤖 AI Generated
+                    🤖 Wygenerowane AI
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input 
@@ -179,7 +179,7 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
                         updateCreationType(newCreationType);
                       }}
                     />
-                    ✏️ Manual
+                    ✏️ Ręczne
                   </label>
                 </div>
               </CardContent>
@@ -188,16 +188,16 @@ export function Sidebar({ isCollapsed = false }: SidebarProps) {
             {/* Categories Filter - Placeholder */}
             <Card>
               <CardContent className="p-3">
-                <h4 className="font-medium text-sm mb-2">Categories</h4>
-                <p className="text-xs text-muted-foreground">No categories yet</p>
+                <h4 className="font-medium text-sm mb-2">Kategorie</h4>
+                <p className="text-xs text-muted-foreground">Brak kategorii</p>
               </CardContent>
             </Card>
 
             {/* Groups Filter - Placeholder */}
             <Card>
               <CardContent className="p-3">
-                <h4 className="font-medium text-sm mb-2">Groups</h4>
-                <p className="text-xs text-muted-foreground">No groups yet</p>
+                <h4 className="font-medium text-sm mb-2">Grupy</h4>
+                <p className="text-xs text-muted-foreground">Brak grup</p>
               </CardContent>
             </Card>
           </CollapsibleContent>

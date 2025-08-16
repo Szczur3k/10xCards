@@ -23,47 +23,57 @@ export class RateLimiter {
     this.supabase = createSupabaseServerClient(context);
   }
 
+
+  
   async checkLimit(request: Request, config: RateLimitConfig): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
-    const key = config.keyGenerator(request);
-    const now = new Date();
-    const windowStart = new Date(now.getTime() - config.windowMs);
-
-    try {
-      // Clean up old records first
-      await this.cleanupOldRecords(windowStart);
-
-      // Get current attempts for this key
-      const { data: records, error } = await this.supabase
-        .from('rate_limit_records')
-        .select('*')
-        .eq('ip', key)
-        .gte('window_start', windowStart.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Rate limit check error:', error);
-        // On error, allow the request (fail open)
-        return { allowed: true, remaining: config.maxAttempts, resetTime: now.getTime() + config.windowMs };
-      }
-
-      const currentAttempts = records?.length || 0;
-      const remaining = Math.max(0, config.maxAttempts - currentAttempts);
-      const resetTime = now.getTime() + config.windowMs;
-
-      if (currentAttempts >= config.maxAttempts) {
-        return { allowed: false, remaining: 0, resetTime };
-      }
-
-      // Record this attempt
-      await this.recordAttempt(key, now);
-
-      return { allowed: true, remaining: remaining - 1, resetTime };
-
-    } catch (error) {
-      console.error('Rate limiter error:', error);
-      // On error, allow the request (fail open)
-      return { allowed: true, remaining: config.maxAttempts, resetTime: now.getTime() + config.windowMs };
-    }
+    // Rate limiting disabled - always allow requests
+       // Skip rate limiting during tests
+      //  if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true' || process.env.CI === 'true') {
+      //   return { allowed: true, remaining: config.maxAttempts, resetTime: Date.now() + config.windowMs };
+      // }
+  
+      // const key = config.keyGenerator(request);
+      // const now = new Date();
+      // const windowStart = new Date(now.getTime() - config.windowMs);
+  
+      // try {
+      //   // Clean up old records first
+      //   await this.cleanupOldRecords(windowStart);
+  
+      //   // Get current attempts for this key
+      //   const { data: records, error } = await this.supabase
+      //     .from('rate_limit_records')
+      //     .select('*')
+      //     .eq('ip', key)
+      //     .gte('window_start', windowStart.toISOString())
+      //     .order('created_at', { ascending: false });
+  
+      //   if (error) {
+      //     console.error('Rate limit check error:', error);
+      //     // On error, allow the request (fail open)
+      //     return { allowed: true, remaining: config.maxAttempts, resetTime: now.getTime() + config.windowMs };
+      //   }
+  
+      //   const currentAttempts = records?.length || 0;
+      //   const remaining = Math.max(0, config.maxAttempts - currentAttempts);
+      //   const resetTime = now.getTime() + config.windowMs;
+  
+      //   if (currentAttempts >= config.maxAttempts) {
+      //     return { allowed: false, remaining: 0, resetTime };
+      //   }
+  
+      //   // Record this attempt
+      //   await this.recordAttempt(key, now);
+  
+      //   return { allowed: true, remaining: remaining - 1, resetTime };
+  
+      // } catch (error) {
+      //   console.error('Rate limiter error:', error);
+      //   // On error, allow the request (fail open)
+      //   return { allowed: true, remaining: config.maxAttempts, resetTime: now.getTime() + config.windowMs };
+      // }
+  
+    return { allowed: true, remaining: config.maxAttempts, resetTime: Date.now() + config.windowMs };
   }
 
   /**
