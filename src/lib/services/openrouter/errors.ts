@@ -6,7 +6,7 @@ export class OpenRouterError extends Error {
     message: string,
     public code: string,
     public statusCode?: number,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = "OpenRouterError";
@@ -33,7 +33,7 @@ export class OpenRouterError extends Error {
  * Authentication error - invalid API key or unauthorized access
  */
 export class AuthenticationError extends OpenRouterError {
-  constructor(message: string = "Nieprawidłowy klucz API") {
+  constructor(message = "Nieprawidłowy klucz API") {
     super(message, "AUTHENTICATION_ERROR", 401);
     this.name = "AuthenticationError";
     Object.setPrototypeOf(this, AuthenticationError.prototype);
@@ -100,7 +100,7 @@ export class InsufficientCreditsError extends OpenRouterError {
  * Network error - connection issues
  */
 export class NetworkError extends OpenRouterError {
-  constructor(message: string = "Błąd połączenia") {
+  constructor(message = "Błąd połączenia") {
     super(message, "NETWORK_ERROR", 0);
     this.name = "NetworkError";
     Object.setPrototypeOf(this, NetworkError.prototype);
@@ -133,7 +133,7 @@ export class JsonParsingError extends OpenRouterError {
  * Schema validation error - response doesn't match expected schema
  */
 export class SchemaValidationError extends OpenRouterError {
-  constructor(message: string, expectedSchema?: any, receivedData?: any) {
+  constructor(message: string, expectedSchema?: unknown, receivedData?: unknown) {
     super(message, "SCHEMA_VALIDATION_ERROR", 422, { expectedSchema, receivedData });
     this.name = "SchemaValidationError";
     Object.setPrototypeOf(this, SchemaValidationError.prototype);
@@ -155,7 +155,7 @@ export class ContentFilterError extends OpenRouterError {
  * Server error - internal server error from OpenRouter
  */
 export class ServerError extends OpenRouterError {
-  constructor(message: string = "Wewnętrzny błąd serwera", statusCode: number = 500) {
+  constructor(message = "Wewnętrzny błąd serwera", statusCode = 500) {
     super(message, "SERVER_ERROR", statusCode);
     this.name = "ServerError";
     Object.setPrototypeOf(this, ServerError.prototype);

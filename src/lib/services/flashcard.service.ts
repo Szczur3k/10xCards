@@ -3,7 +3,6 @@ import type { Database } from "../../db/database.types";
 import type {
   CreateFlashcardCommand,
   FlashcardDTO,
-  FlashcardInsert,
   FlashcardQueryParams,
   FlashcardListResponseDTO,
   PaginationDTO,
@@ -57,13 +56,13 @@ export class FlashcardService {
     }
 
     // Validate and create category relationships
-    let categories: Array<{ id: string; name: string }> = [];
+    let categories: { id: string; name: string }[] = [];
     if (command.category_ids && command.category_ids.length > 0) {
       categories = await this.createCategoryRelationships(flashcard.id, command.category_ids);
     }
 
     // Validate and create group relationships
-    let groups: Array<{ id: string; name: string }> = [];
+    let groups: { id: string; name: string }[] = [];
     if (command.group_ids && command.group_ids.length > 0) {
       groups = await this.createGroupRelationships(flashcard.id, command.group_ids);
     }
@@ -92,7 +91,7 @@ export class FlashcardService {
   private async createCategoryRelationships(
     flashcardId: string,
     categoryIds: string[]
-  ): Promise<Array<{ id: string; name: string }>> {
+  ): Promise<{ id: string; name: string }[]> {
     // First validate that all categories exist
     const { data: existingCategories, error: categoriesError } = await this.supabase
       .from("categories")
@@ -152,7 +151,7 @@ export class FlashcardService {
   private async createGroupRelationships(
     flashcardId: string,
     groupIds: string[]
-  ): Promise<Array<{ id: string; name: string }>> {
+  ): Promise<{ id: string; name: string }[]> {
     // First validate that all groups exist
     const { data: existingGroups, error: groupsError } = await this.supabase
       .from("groups")
@@ -270,29 +269,29 @@ export class FlashcardService {
     }
 
     // Transform data to FlashcardDTO format and apply client-side filtering
-    let flashcardDTOs: FlashcardDTO[] = allFlashcards.map((flashcard: any) => ({
-      id: flashcard.id,
-      front: flashcard.front,
-      back: flashcard.back,
-      creation_type: flashcard.creation_type,
-      status: flashcard.status,
-      source_text_id: flashcard.source_text_id,
+    let flashcardDTOs: FlashcardDTO[] = allFlashcards.map((flashcard: unknown) => ({
+      id: (flashcard as Record<string, unknown>).id as string,
+      front: (flashcard as Record<string, unknown>).front as string,
+      back: (flashcard as Record<string, unknown>).back as string,
+      creation_type: (flashcard as Record<string, unknown>).creation_type as string,
+      status: (flashcard as Record<string, unknown>).status as string,
+      source_text_id: (flashcard as Record<string, unknown>).source_text_id as string | null,
       categories:
-        flashcard.flashcard_categories
-          ?.map((fc: any) => ({
-            id: fc.categories?.id || "",
-            name: fc.categories?.name || "",
+        (flashcard as Record<string, unknown>).flashcard_categories
+          ?.map((fc: unknown) => ({
+            id: ((fc as Record<string, unknown>).categories?.id as string) || "",
+            name: ((fc as Record<string, unknown>).categories?.name as string) || "",
           }))
-          .filter((c: any) => c.id) || [],
+          .filter((c: unknown) => (c as Record<string, unknown>).id) || [],
       groups:
-        flashcard.flashcard_groups
-          ?.map((fg: any) => ({
-            id: fg.groups?.id || "",
-            name: fg.groups?.name || "",
+        (flashcard as Record<string, unknown>).flashcard_groups
+          ?.map((fg: unknown) => ({
+            id: ((fg as Record<string, unknown>).groups?.id as string) || "",
+            name: ((fg as Record<string, unknown>).groups?.name as string) || "",
           }))
-          .filter((g: any) => g.id) || [],
-      created_at: flashcard.created_at,
-      updated_at: flashcard.updated_at,
+          .filter((g: unknown) => (g as Record<string, unknown>).id) || [],
+      created_at: (flashcard as Record<string, unknown>).created_at as string,
+      updated_at: (flashcard as Record<string, unknown>).updated_at as string,
     }));
 
     // Apply client-side filtering for categories and groups
@@ -334,11 +333,11 @@ export class FlashcardService {
    * Currently categories and groups are global, but this method
    * provides foundation for future user-specific access control
    */
-  private async validateUserAccess(userId: string): Promise<boolean> {
-    // For MVP, all users have access to all categories and groups
-    // This method can be extended for user-specific permissions
-    return true;
-  }
+  // private async validateUserAccess(userId: string): Promise<boolean> {
+  //   // For MVP, all users have access to all categories and groups
+  //   // This method can be extended for user-specific permissions
+  //   return true;
+  // }
 
   /**
    * Gets a single flashcard by ID for the authenticated user
@@ -417,18 +416,18 @@ export class FlashcardService {
         : undefined,
       categories:
         flashcard.flashcard_categories
-          ?.map((fc: any) => ({
-            id: fc.categories?.id || "",
-            name: fc.categories?.name || "",
+          ?.map((fc: unknown) => ({
+            id: ((fc as Record<string, unknown>).categories?.id as string) || "",
+            name: ((fc as Record<string, unknown>).categories?.name as string) || "",
           }))
-          .filter((c: any) => c.id) || [],
+          .filter((c: unknown) => (c as Record<string, unknown>).id) || [],
       groups:
         flashcard.flashcard_groups
-          ?.map((fg: any) => ({
-            id: fg.groups?.id || "",
-            name: fg.groups?.name || "",
+          ?.map((fg: unknown) => ({
+            id: ((fg as Record<string, unknown>).categories?.id as string) || "",
+            name: ((fg as Record<string, unknown>).categories?.name as string) || "",
           }))
-          .filter((g: any) => g.id) || [],
+          .filter((g: unknown) => (g as Record<string, unknown>).id) || [],
       created_at: flashcard.created_at,
       updated_at: flashcard.updated_at,
     };
@@ -444,7 +443,7 @@ export class FlashcardService {
     const existingFlashcard = await this.getById(command.id, command.user_id);
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (command.front !== undefined) updateData.front = command.front;
     if (command.back !== undefined) updateData.back = command.back;
     if (command.status !== undefined) updateData.status = command.status;
@@ -574,7 +573,7 @@ export class FlashcardService {
     }
 
     // Prepare update data based on action
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 

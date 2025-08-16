@@ -27,11 +27,11 @@ if (Astro.request.method === "POST") {
     });
 
     // Attempt signup
-    const result = await authService.signup({ email, password });
+    await authService.signup({ email, password });
 
     // Redirect to flashcards on success
     return Astro.redirect("/flashcards");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Signup error:", error);
     // Error will be handled by client-side for better UX
   }
@@ -348,7 +348,7 @@ const csrfToken = Astro.locals.csrfToken;
         });
 
         if (response.ok) {
-          const data = await response.json();
+          await response.json();
 
           // Show success message
           successMessage?.classList.remove("hidden");
@@ -390,4 +390,3 @@ const csrfToken = Astro.locals.csrfToken;
     });
   </script>
 </Layout>
-

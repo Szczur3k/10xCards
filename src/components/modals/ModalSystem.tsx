@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 import { AIGenerationModal } from "./AIGenerationModal";
 import { ReviewCarousel } from "./ReviewCarousel";
 import { EditFlashcardModal } from "./EditFlashcardModal";
-import type { GenerateFlashcardsRequestDTO, GeneratedFlashcardDTO, FlashcardDTO } from "../../types";
+import type { GenerateFlashcardsRequestDTO, GeneratedFlashcardDTO } from "../../types";
 
 // Modal types
 type ModalType = "ai-generation" | "review-carousel" | "edit-flashcard" | "bulk-confirmation" | null;
@@ -10,7 +10,7 @@ type ModalType = "ai-generation" | "review-carousel" | "edit-flashcard" | "bulk-
 interface ModalState {
   type: ModalType;
   isOpen: boolean;
-  data?: any;
+  data?: unknown;
 }
 
 interface SharedModalData {
@@ -24,9 +24,9 @@ interface SharedModalData {
 interface ModalContextType {
   modalState: ModalState;
   sharedData: SharedModalData;
-  openModal: (type: ModalType, data?: any) => void;
+  openModal: (type: ModalType, data?: unknown) => void;
   closeModal: () => void;
-  updateModalData: (data: any) => void;
+  updateModalData: (data: unknown) => void;
   updateSharedData: (data: Partial<SharedModalData>) => void;
   clearSharedData: () => void;
 }
@@ -53,7 +53,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
 
   const [sharedData, setSharedData] = useState<SharedModalData>({});
 
-  const openModal = useCallback((type: ModalType, data?: any) => {
+  const openModal = useCallback((type: ModalType, data?: unknown) => {
     setModalState({
       type,
       isOpen: true,
@@ -69,7 +69,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const updateModalData = useCallback((data: any) => {
+  const updateModalData = useCallback((data: unknown) => {
     setModalState((prev) => ({
       ...prev,
       data: { ...prev.data, ...data },
@@ -99,7 +99,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
 
 // Modal renderer component - EXPORTED
 export function ModalRenderer() {
-  const { modalState, sharedData, closeModal, openModal, updateModalData, updateSharedData } = useModal();
+  const { modalState, sharedData, closeModal, openModal, updateSharedData } = useModal();
 
   // Get flashcards for review modal
   const reviewFlashcards = sharedData.generatedFlashcards || modalState.data?.flashcards || [];
@@ -133,13 +133,10 @@ export function ModalRenderer() {
     window.dispatchEvent(new CustomEvent("flashcards-updated"));
   }, [closeModal]);
 
-  const handleEditSave = useCallback(
-    (flashcard: FlashcardDTO) => {
-      closeModal();
-      // Optionally refresh flashcards list
-    },
-    [closeModal]
-  );
+  const handleEditSave = useCallback(() => {
+    closeModal();
+    // Optionally refresh flashcards list
+  }, [closeModal]);
 
   return (
     <>

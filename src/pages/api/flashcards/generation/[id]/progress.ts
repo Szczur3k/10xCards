@@ -144,7 +144,7 @@ export async function GET(context: APIContext): Promise<Response> {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GET /api/flashcards/generation/[id]/progress error:", error);
 
     const errorResponse: ErrorResponseDTO = {

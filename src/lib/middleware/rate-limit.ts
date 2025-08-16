@@ -8,16 +8,16 @@ interface RateLimitConfig {
   skipSuccessfulRequests?: boolean;
 }
 
-interface RateLimitRecord {
-  ip: string;
-  endpoint: string;
-  attempts: number;
-  window_start: string;
-  created_at: string;
-}
+// interface RateLimitRecord {
+//   ip: string;
+//   endpoint: string;
+//   attempts: number;
+//   window_start: string;
+//   created_at: string;
+// }
 
 export class RateLimiter {
-  private supabase: any;
+  private supabase: ReturnType<typeof createSupabaseServerClient>;
 
   constructor(context: { headers: Headers; cookies: AstroCookies }) {
     this.supabase = createSupabaseServerClient(context);

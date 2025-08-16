@@ -26,7 +26,7 @@ export const uuidSchema = z.string().uuid("Nieprawidłowy format UUID");
  * @returns Validated and transformed parameters
  * @throws Validation error with detailed messages
  */
-export function validateSourceTextQueryParams(params: any): SourceTextQueryParams {
+export function validateSourceTextQueryParams(params: unknown): SourceTextQueryParams {
   try {
     return sourceTextQueryParamsSchema.parse(params);
   } catch (error) {
@@ -59,7 +59,7 @@ export function validateSourceTextQueryParams(params: any): SourceTextQueryParam
  * @returns Validated UUID string
  * @throws Validation error if UUID is invalid
  */
-export function validateUUID(id: string, fieldName: string = "id"): string {
+export function validateUUID(id: string, fieldName = "id"): string {
   try {
     return uuidSchema.parse(id);
   } catch (error) {

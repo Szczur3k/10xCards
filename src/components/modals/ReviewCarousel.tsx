@@ -3,7 +3,7 @@ import { Button } from "../ui/button";
 import { X, ChevronLeft, ChevronRight, Check, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useModal } from "./ModalSystem";
 import { useToast } from "../providers/ToastProvider";
-import { ErrorHandlerService } from "../../lib/services/error-handler.service";
+import { parseApiError, handleError } from "../../lib/services/error-handler.service";
 import type { GeneratedFlashcardDTO } from "../../types";
 
 interface ReviewCarouselProps {
@@ -27,7 +27,7 @@ export function ReviewCarousel({ isOpen, flashcards, onClose, onComplete }: Revi
   const [isSaving, setIsSaving] = useState(false);
   const [localFlashcards, setLocalFlashcards] = useState<GeneratedFlashcardDTO[]>(flashcards);
 
-  const { sharedData, clearSharedData, updateSharedData } = useModal();
+  const { sharedData, clearSharedData } = useModal();
   const { addToast } = useToast();
 
   // Synchronize local flashcards with prop changes
@@ -124,7 +124,7 @@ export function ReviewCarousel({ isOpen, flashcards, onClose, onComplete }: Revi
       });
 
       if (!response.ok) {
-        const errorMessage = await ErrorHandlerService.parseApiError(response);
+        const errorMessage = await parseApiError(response);
         throw new Error(errorMessage);
       }
 
@@ -161,7 +161,7 @@ export function ReviewCarousel({ isOpen, flashcards, onClose, onComplete }: Revi
       restoredFlashcards[currentIndex] = currentCard;
       setLocalFlashcards(restoredFlashcards);
 
-      const errorMessage = ErrorHandlerService.handleError(error);
+      const errorMessage = handleError(error);
       addToast({
         type: "error",
         title: "Błąd regeneracji",
@@ -216,7 +216,7 @@ export function ReviewCarousel({ isOpen, flashcards, onClose, onComplete }: Revi
       });
 
       if (!response.ok) {
-        const errorMessage = await ErrorHandlerService.parseApiError(response);
+        const errorMessage = await parseApiError(response);
         throw new Error(errorMessage);
       }
 
@@ -233,7 +233,7 @@ export function ReviewCarousel({ isOpen, flashcards, onClose, onComplete }: Revi
       onComplete();
     } catch (error) {
       console.error("Error saving flashcards:", error);
-      const errorMessage = ErrorHandlerService.handleError(error);
+      const errorMessage = handleError(error);
       addToast({
         type: "error",
         title: "Błąd zapisywania",
@@ -273,7 +273,14 @@ export function ReviewCarousel({ isOpen, flashcards, onClose, onComplete }: Revi
         <div className="p-6 flex-1">
           <div className="max-w-2xl mx-auto">
             {/* Card */}
-            <div className="relative w-full h-64 mb-6 cursor-pointer" onClick={handleFlip}>
+            <div
+              className="relative w-full h-64 mb-6 cursor-pointer"
+              onClick={handleFlip}
+              onKeyDown={(e) => e.key === "Enter" && handleFlip()}
+              role="button"
+              tabIndex={0}
+              aria-label="Obróć fiszkę"
+            >
               <div
                 className={`absolute inset-0 w-full h-full transition-transform duration-500 preserve-3d ${isFlipped ? "rotate-y-180" : ""}`}
               >

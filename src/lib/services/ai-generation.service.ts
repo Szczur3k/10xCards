@@ -73,7 +73,7 @@ export class AIGenerationService {
    * Creates source_text record and generates flashcards
    */
   private async generateFlashcards(command: GenerateFlashcardsCommand): Promise<GenerateFlashcardsResponseDTO> {
-    const startTime = Date.now();
+    // const startTime = Date.now();
 
     if (!command.source_text) {
       throw {
@@ -115,7 +115,7 @@ export class AIGenerationService {
     group_ids?: string[];
   }): Promise<GenerateFlashcardsResponseDTO> {
     // 1. Verify source text exists and belongs to user
-    const sourceText = await this.getSourceTextById(command.source_text_id, command.user_id);
+    await this.getSourceTextById(command.source_text_id, command.user_id);
 
     // 2. Delete existing flashcards from this source text
     await this.deleteFlashcardsBySourceText(command.source_text_id, command.user_id);
@@ -264,12 +264,7 @@ export class AIGenerationService {
     });
 
     // 4. Generate flashcards using AI with progress tracking
-    const aiFlashcards = await this.callAIModelWithProgress(
-      sourceText.content,
-      params.max_flashcards,
-      selectedModel,
-      params.source_text_id
-    );
+    const aiFlashcards = await this.callAIModelWithProgress(sourceText.content, params.max_flashcards, selectedModel);
 
     // 5. Prepare flashcards for review (DON'T save to database yet)
     const generatedFlashcards: GeneratedFlashcardDTO[] = [];
@@ -327,10 +322,9 @@ export class AIGenerationService {
   private async callAIModelWithProgress(
     sourceText: string,
     maxCards: number,
-    model: string,
-    sessionId: string
-  ): Promise<Array<{ front: string; back: string; confidence_score: number; token_count?: number }>> {
-    const startTime = Date.now();
+    model: string
+  ): Promise<{ front: string; back: string; confidence_score: number; token_count?: number }[]> {
+    // const startTime = Date.now();
 
     // Create system prompt for flashcard generation
     const systemPrompt = `Tworzysz fiszki edukacyjne w formacie JSON. Odpowiadaj TYLKO JSON-em, bez żadnych dodatkowych komentarzy.
@@ -368,14 +362,14 @@ ${sourceText}`;
 
       const aiResponse = response.choices[0]?.message?.content || "";
       const totalTokens = response.usage?.total_tokens || 0;
-      const endTime = Date.now();
-      const totalTime = endTime - startTime;
+      // const endTime = Date.now();
+      // const totalTime = endTime - startTime;
 
       // Parse and validate JSON response using schema
       const flashcardsData = this.parseFlashcardsFromAI(aiResponse);
 
       // Convert to expected format with confidence scores
-      const cards = Object.entries(flashcardsData).map(([key, card]) => ({
+      const cards = Object.entries(flashcardsData).map(([, card]) => ({
         front: card.front, // Already validated by schema
         back: card.back, // Already validated by schema
         confidence_score: 0.85 + Math.random() * 0.15, // 0.85-1.0 range
@@ -440,7 +434,8 @@ ${sourceText}`;
 
       // Clean up common JSON issues
       jsonString = jsonString
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Remove control characters
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, "") // Remove control characters
         .replace(/,\s*}/g, "}") // Remove trailing commas
         .replace(/,\s*]/g, "]"); // Remove trailing commas in arrays
 
@@ -454,7 +449,10 @@ ${sourceText}`;
         throw validation.error;
       }
 
-      return validation.data!;
+      if (!validation.data) {
+        throw new Error("Brak danych w odpowiedzi walidacji");
+      }
+      return validation.data;
     } catch (error) {
       console.error("Error parsing AI response:", error, "Full Response:", aiResponse);
 
@@ -605,7 +603,7 @@ Back: ${params.rejected_flashcard.back}`;
     user_id: string;
     total_flashcards: number;
     model_used: string;
-    request_data: any;
+    request_data: Record<string, unknown>;
   }): Promise<void> {
     const { error } = await this.supabase.from("generation_sessions").insert({
       source_text_id: params.source_text_id,
@@ -644,7 +642,7 @@ Back: ${params.rejected_flashcard.back}`;
   /**
    * Completes generation session
    */
-  private async completeGenerationSession(sourceTextId: string, result: any): Promise<void> {
+  private async completeGenerationSession(sourceTextId: string, result: Record<string, unknown>): Promise<void> {
     const { error } = await this.supabase
       .from("generation_sessions")
       .update({

@@ -1,6 +1,6 @@
 import type { APIContext } from "astro";
 import { FlashcardService } from "../../lib/services/flashcard.service";
-import { validateCreateFlashcardRequest, validateGetFlashcardsQuery } from "../../lib/validation/flashcard.schemas";
+import { validateCreateFlashcardRequest } from "../../lib/validation/flashcard.schemas";
 import type {
   CreateFlashcardCommand,
   ErrorResponseDTO,
@@ -39,12 +39,12 @@ export async function GET(context: APIContext): Promise<Response> {
     const queryParams: FlashcardQueryParams = {
       page: parseInt(url.searchParams.get("page") || "1"),
       limit: parseInt(url.searchParams.get("limit") || "20"),
-      status: url.searchParams.get("status") as any,
-      creation_type: url.searchParams.get("creation_type") as any,
+      status: url.searchParams.get("status") as string | null,
+      creation_type: url.searchParams.get("creation_type") as string | null,
       category_id: url.searchParams.get("category_id") || undefined,
       group_id: url.searchParams.get("group_id") || undefined,
-      sort: (url.searchParams.get("sort") as any) || "created_at",
-      order: (url.searchParams.get("order") as any) || "desc",
+      sort: (url.searchParams.get("sort") as string) || "created_at",
+      order: (url.searchParams.get("order") as string) || "desc",
     };
 
     // Initialize service and get flashcards
@@ -55,19 +55,25 @@ export async function GET(context: APIContext): Promise<Response> {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GET /api/flashcards error:", error);
 
     // Handle validation errors
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -111,7 +117,7 @@ export async function POST(context: APIContext): Promise<Response> {
     let requestData: unknown;
     try {
       requestData = await context.request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -146,19 +152,25 @@ export async function POST(context: APIContext): Promise<Response> {
       status: 201,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/flashcards error:", error);
 
     // Handle validation errors
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }

@@ -275,7 +275,7 @@ export const ModelNameSchema = z
   })
   .min(1, "Nazwa modelu nie może być pusta")
   .max(100, "Nazwa modelu jest zbyt długa")
-  .regex(/^[a-zA-Z0-9\/_-]+$/, "Nazwa modelu może zawierać tylko litery, cyfry, /, _, -");
+  .regex(/^[a-zA-Z0-9/_-]+$/, "Nazwa modelu może zawierać tylko litery, cyfry, /, _, -");
 
 // ==================== VALIDATION FUNCTIONS ====================
 

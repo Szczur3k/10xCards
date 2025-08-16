@@ -33,7 +33,7 @@ export async function POST(context: APIContext): Promise<Response> {
     let requestData: unknown;
     try {
       requestData = await context.request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -61,11 +61,11 @@ export async function POST(context: APIContext): Promise<Response> {
     }
 
     const { flashcards, source_text_id, category_ids, group_ids } = requestData as {
-      flashcards: Array<{
+      flashcards: {
         front: string;
         back: string;
         temp_id: string;
-      }>;
+      }[];
       source_text_id?: string;
       category_ids?: string[];
       group_ids?: string[];
@@ -124,19 +124,25 @@ export async function POST(context: APIContext): Promise<Response> {
         headers: { "Content-Type": "application/json" },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/flashcards/accept error:", error);
 
     // Handle validation errors
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }

@@ -2,39 +2,34 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Moon, Sun, BarChart3, BookOpen, LogOut, User } from "lucide-react";
-import type { FilterState, FlashcardStatus, FlashcardType } from "../../types";
+import { ChevronDown, Moon, Sun, BarChart3, BookOpen } from "lucide-react";
+import type { FlashcardStatus, FlashcardType } from "../../types";
 import { useTheme } from "../providers/ThemeProvider";
-import { useAuth } from "../providers/AuthProvider";
 import { useFilterContext } from "../providers/FilterProvider";
-
-interface SidebarProps {
-  isCollapsed?: boolean;
-}
 
 /**
  * Sidebar - Fixed vertical sidebar (250px) with navigation, theme toggle and filters
  * Contains logo, theme toggle, navigation menu, and collapsible filter sections
  * Always visible on desktop, drawer overlay on mobile
  */
-export function Sidebar({ isCollapsed = false }: SidebarProps) {
+export function Sidebar() {
   const [filtersExpanded, setFiltersExpanded] = useState(true);
-  const { theme, setTheme, isDarkMode } = useTheme();
-  const { logout } = useAuth();
+  const { setTheme, isDarkMode } = useTheme();
+  // const { logout } = useAuth();
   const { filters, updateStatus, updateCreationType } = useFilterContext();
 
   const handleThemeToggle = () => {
     setTheme(isDarkMode ? "light" : "dark");
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      // Redirect will be handled by auth state change
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
+  // const handleLogout = async () => {
+  //   try {
+  //     await logout();
+  //     // Redirect will be handled by auth state change
+  //   } catch (error) {
+  //     console.error("Logout failed:", error);
+  //   }
+  // };
 
   return (
     <aside className="w-64 bg-card border-r border-border flex flex-col">

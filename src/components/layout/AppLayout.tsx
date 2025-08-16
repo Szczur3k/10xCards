@@ -11,9 +11,9 @@ import { ModalProvider, ModalRenderer } from "../modals/ModalSystem";
 export function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
+  // const toggleSidebar = () => {
+  //   setIsSidebarOpen(!isSidebarOpen);
+  // };
 
   const closeSidebar = () => {
     setIsSidebarOpen(false);
@@ -23,7 +23,16 @@ export function AppLayout() {
     <ModalProvider>
       <div className="flex h-screen bg-background">
         {/* Mobile Sidebar Overlay */}
-        {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={closeSidebar} />}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={closeSidebar}
+            onKeyDown={(e) => e.key === "Escape" && closeSidebar()}
+            role="button"
+            tabIndex={0}
+            aria-label="Zamknij sidebar"
+          />
+        )}
 
         {/* Sidebar - Fixed on desktop, drawer on mobile */}
         <div

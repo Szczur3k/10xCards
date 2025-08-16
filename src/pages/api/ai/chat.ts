@@ -1,10 +1,6 @@
 import type { APIRoute } from "astro";
 import { OpenRouterService } from "../../../lib/services/openrouter/client";
-import {
-  validateChatMessages,
-  validateChatOptions,
-  isValidationError,
-} from "../../../lib/services/openrouter/validators";
+import { validateChatMessages, validateChatOptions } from "../../../lib/services/openrouter/validators";
 import { isOpenRouterError } from "../../../lib/services/openrouter/errors";
 
 // Configure prerendering
@@ -67,7 +63,7 @@ export const POST: APIRoute = async ({ request }) => {
     let requestData;
     try {
       requestData = await request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "Nieprawidłowe dane JSON",
@@ -114,10 +110,10 @@ export const POST: APIRoute = async ({ request }) => {
     let validatedMessages;
     try {
       validatedMessages = validateChatMessages(messages);
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
-          error: error instanceof Error ? error.message : "Błąd walidacji wiadomości",
+          error: "Błąd walidacji wiadomości",
           code: "VALIDATION_ERROR",
         }),
         {
@@ -132,10 +128,10 @@ export const POST: APIRoute = async ({ request }) => {
     if (options) {
       try {
         validatedOptions = validateChatOptions(options);
-      } catch (error) {
+      } catch {
         return new Response(
           JSON.stringify({
-            error: error instanceof Error ? error.message : "Błąd walidacji opcji",
+            error: "Błąd walidacji opcji",
             code: "VALIDATION_ERROR",
           }),
           {

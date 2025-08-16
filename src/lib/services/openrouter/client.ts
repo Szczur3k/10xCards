@@ -248,7 +248,7 @@ export class OpenRouterService {
     };
   }
 
-  private async makeRequest<T>(endpoint: string, data?: any): Promise<T> {
+  private async makeRequest<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.withRetry(async () => {
       try {
         const response = await this.client.post(endpoint, data);
@@ -284,7 +284,7 @@ export class OpenRouterService {
       }
     }
 
-    throw lastError!;
+    throw lastError || new Error("Unknown error occurred");
   }
 
   private handleApiError(error: AxiosError): never {
@@ -318,9 +318,10 @@ export class OpenRouterService {
             "FORBIDDEN",
             403
           );
-        case 429:
+        case 429: {
           const retryAfter = parseInt(error.response.headers["retry-after"] || "60");
           throw new RateLimitError(retryAfter);
+        }
         case 400:
           if (errorData.error?.message?.includes("content")) {
             throw new ContentFilterError(errorData.error.message);
@@ -328,9 +329,10 @@ export class OpenRouterService {
           throw new ValidationError(errorData.error?.message || "Nieprawidłowe żądanie");
         case 404:
           throw new OpenRouterError("Endpoint nie został znaleziony", "NOT_FOUND", 404);
-        case 503:
+        case 503: {
           const serviceRetryAfter = parseInt(error.response.headers["retry-after"] || "60");
           throw new ServiceUnavailableError(serviceRetryAfter);
+        }
         default:
           if (status >= 500) {
             throw new ServerError(errorData.error?.message, status);
@@ -414,8 +416,8 @@ export class OpenRouterService {
       .trim();
   }
 
-  private buildRequestOptions(options?: ChatOptions): Record<string, any> {
-    const requestOptions: Record<string, any> = {};
+  private buildRequestOptions(options?: ChatOptions): Record<string, unknown> {
+    const requestOptions: Record<string, unknown> = {};
 
     if (options?.temperature !== undefined) requestOptions.temperature = options.temperature;
     if (options?.max_tokens !== undefined) requestOptions.max_tokens = options.max_tokens;
@@ -430,7 +432,7 @@ export class OpenRouterService {
     return requestOptions;
   }
 
-  private parseStructuredResponse<T>(response: ChatResponse, schema: JsonSchema): T {
+  private parseStructuredResponse<T>(response: ChatResponse): T {
     const content = response.choices[0]?.message?.content;
     if (!content) {
       throw new SchemaValidationError("Brak treści w odpowiedzi");

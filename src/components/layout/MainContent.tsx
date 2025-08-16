@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Header } from "./Header";
 import { FlashcardGrid } from "../flashcards/FlashcardGrid";
 import { BulkOperationsBar } from "../flashcards/BulkOperationsBar";
@@ -6,7 +6,7 @@ import { useFlashcards } from "../../hooks/useFlashcards";
 import { useFilterContext } from "../providers/FilterProvider";
 import { useBulkOperations } from "../../hooks/useBulkOperations";
 import { useModal } from "../modals/ModalSystem";
-import type { FlashcardViewModel, GenerateFlashcardsRequestDTO, FlashcardDTO } from "../../types";
+import type { FlashcardViewModel, FlashcardDTO } from "../../types";
 
 /**
  * MainContent - Main content area that fills remaining space after sidebar

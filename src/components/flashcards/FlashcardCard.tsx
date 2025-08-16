@@ -80,7 +80,14 @@ function ActionsMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+            onKeyDown={(e) => e.key === "Escape" && setIsOpen(false)}
+            role="button"
+            tabIndex={0}
+            aria-label="Zamknij menu"
+          />
 
           {/* Menu */}
           <div className="absolute right-0 top-8 z-20 w-32 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1">
@@ -143,15 +150,19 @@ export function FlashcardCard({ flashcard, selected, onSelect, onEdit, onDelete 
         ${isHovered ? "shadow-md" : "shadow-sm"}
       `}
       onClick={handleCardClick}
+      onKeyDown={(e) => e.key === "Enter" && handleCardClick()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      role="button"
+      tabIndex={0}
+      aria-label={`Fiszka: ${flashcard.front.slice(0, 50)}...`}
     >
       {/* Selection Checkbox */}
       <div className="absolute top-3 left-3 z-10">
         <input
           type="checkbox"
           checked={selected}
-          onChange={() => {}} // Handled by onClick
+          onChange={() => undefined} // Handled by onClick
           onClick={handleCheckboxClick}
           className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
         />

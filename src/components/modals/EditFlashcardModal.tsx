@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { MultiSelect } from "../ui/multi-select";
 import { X, Save, Plus, Edit3, FileText, Type, Tag, Users, AlertCircle, CheckCircle } from "lucide-react";
 import type { FlashcardDTO, CreateFlashcardRequestDTO, UpdateFlashcardRequestDTO, FlashcardStatus } from "../../types";
@@ -191,7 +190,7 @@ export function EditFlashcardModal({ isOpen, flashcard, onClose, onSave }: EditF
               {/* Front */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                  <label htmlFor="front" className="text-sm font-medium flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Przód fiszki
                   </label>
@@ -200,6 +199,7 @@ export function EditFlashcardModal({ isOpen, flashcard, onClose, onSave }: EditF
                   </div>
                 </div>
                 <textarea
+                  id="front"
                   value={front}
                   onChange={(e) => setFront(e.target.value)}
                   placeholder="Pytanie, pojęcie lub fraza do zapamiętania..."
@@ -231,7 +231,7 @@ export function EditFlashcardModal({ isOpen, flashcard, onClose, onSave }: EditF
               {/* Back */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                  <label htmlFor="back" className="text-sm font-medium flex items-center gap-2">
                     <Type className="w-4 h-4" />
                     Tył fiszki
                   </label>
@@ -240,6 +240,7 @@ export function EditFlashcardModal({ isOpen, flashcard, onClose, onSave }: EditF
                   </div>
                 </div>
                 <textarea
+                  id="back"
                   value={back}
                   onChange={(e) => setBack(e.target.value)}
                   placeholder="Odpowiedź, definicja lub wyjaśnienie..."
@@ -270,8 +271,11 @@ export function EditFlashcardModal({ isOpen, flashcard, onClose, onSave }: EditF
 
               {/* Status */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
+                <label htmlFor="status" className="text-sm font-medium">
+                  Status
+                </label>
                 <select
+                  id="status"
                   value={status}
                   onChange={(e) => setStatus(e.target.value as FlashcardStatus)}
                   className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -285,7 +289,7 @@ export function EditFlashcardModal({ isOpen, flashcard, onClose, onSave }: EditF
 
               {/* Categories */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label htmlFor="categories" className="text-sm font-medium flex items-center gap-2">
                   <Tag className="w-4 h-4" />
                   Kategorie (opcjonalne)
                 </label>
@@ -308,7 +312,7 @@ export function EditFlashcardModal({ isOpen, flashcard, onClose, onSave }: EditF
 
               {/* Groups */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label htmlFor="groups" className="text-sm font-medium flex items-center gap-2">
                   <Users className="w-4 h-4" />
                   Grupy (opcjonalne)
                 </label>

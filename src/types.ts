@@ -1,4 +1,4 @@
-import type { Database, Tables, TablesInsert, TablesUpdate, Enums } from "./db/database.types";
+import type { Tables, TablesInsert, TablesUpdate, Enums } from "./db/database.types";
 
 // ============================================================================
 // BASE ENTITY TYPES (derived from database models)
@@ -484,7 +484,7 @@ export type CreateFlashcardData = Omit<FlashcardInsert, "user_id"> & {
 };
 
 // Type for API responses with standard structure
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data?: T;
   error?: ErrorResponseDTO;
   pagination?: PaginationDTO;

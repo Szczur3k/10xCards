@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { FlashcardStatus } from "../../types";
 
 // UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -227,10 +226,10 @@ export const validateUpdateFlashcardRequest = async (data: unknown) => {
 /**
  * Validation function for UUID (used for path parameters)
  */
-export const validateUUID = (id: string, fieldName: string = "id") => {
+export const validateUUID = (id: string, fieldName = "id") => {
   try {
     return uuidSchema.parse(id);
-  } catch (error) {
+  } catch {
     throw {
       type: "VALIDATION_ERROR",
       message: `Nieprawidłowy format ${fieldName}`,
@@ -313,7 +312,7 @@ export function validateSourceTextId(id: string) {
       success: true,
       data: uuidSchema.parse(id),
     };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       error: {

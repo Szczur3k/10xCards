@@ -72,7 +72,7 @@ export function useReview(initialFlashcards: GeneratedFlashcardDTO[] = []) {
       action: ReviewAction;
       editData?: ReviewEditData;
     }) => reviewApi.reviewFlashcard(generatedId, action, editData),
-    onSuccess: (convertedFlashcard, { action, generatedId }) => {
+    onSuccess: (convertedFlashcard, { action }) => {
       if (action === "accept") {
         // Add to accepted flashcards
         setReviewState((prev) => ({

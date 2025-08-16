@@ -6,7 +6,7 @@ import FlashcardsListView from "../components/FlashcardsListView";
 export const prerender = false;
 
 // Access user data from middleware
-const { user, isAuthenticated } = Astro.locals;
+const { isAuthenticated } = Astro.locals;
 
 // Double-check authentication (middleware should handle this)
 if (!isAuthenticated) {
@@ -17,4 +17,3 @@ if (!isAuthenticated) {
 <Layout title="Flashcards - 10xCards">
   <FlashcardsListView client:load />
 </Layout>
-

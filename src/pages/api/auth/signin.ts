@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import type { SigninRequestDTO, AuthResponseDTO, ErrorResponseDTO } from "../../../types";
+import type { ErrorResponseDTO } from "../../../types";
 import { AuthService } from "../../../lib/services/auth.service";
 import { validateSigninRequest } from "../../../lib/validation/auth.schemas";
 // import { RateLimiter, rateLimitConfigs, createRateLimitError } from '../../../lib/middleware/rate-limit';
@@ -54,7 +54,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     let requestData: unknown;
     try {
       requestData = await request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -92,19 +92,25 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         // 'X-RateLimit-Reset': (Date.now() + rateLimitConfigs.auth.windowMs).toString()
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Signin endpoint error:", error);
 
     // Handle structured errors from validation or service
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 500,
+        status: typedError.statusCode || 500,
         headers: { "Content-Type": "application/json" },
       });
     }

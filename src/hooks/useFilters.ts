@@ -2,9 +2,9 @@ import { useState, useCallback, useMemo } from "react";
 import type { FlashcardStatus, FlashcardType } from "../types";
 
 // Simple debounce implementation
-function debounce<T extends (...args: any[]) => void>(func: T, delay: number): T {
+function debounce<T extends (...args: unknown[]) => void>(func: T, delay: number): T {
   let timeoutId: NodeJS.Timeout;
-  return ((...args: any[]) => {
+  return ((...args: unknown[]) => {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   }) as T;
@@ -82,7 +82,7 @@ export function useFilters() {
 
   // Convert filters to API query parameters
   const toQueryParams = useCallback(() => {
-    const params: Record<string, any> = {
+    const params: Record<string, unknown> = {
       sort: filters.sort,
       order: filters.order,
     };

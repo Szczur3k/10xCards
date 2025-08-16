@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
-import type { Database } from "../../../db/database.types";
-import type { GeneratedFlashcardDTO, ErrorResponseDTO, GenerateFlashcardsCommand } from "../../../types";
+import type { GeneratedFlashcardDTO, ErrorResponseDTO } from "../../../types";
 import { AIGenerationService } from "../../../lib/services/ai-generation.service";
 
 interface RegenerateFlashcardRequest {
@@ -39,7 +38,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let requestData: RegenerateFlashcardRequest;
     try {
       requestData = await request.json();
-    } catch (error) {
+    } catch {
       const errorResponse: ErrorResponseDTO = {
         error: "INVALID_JSON",
         message: "Nieprawidłowy format JSON w żądaniu",
@@ -62,16 +61,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Create generation command for single flashcard
-    const generationCommand: GenerateFlashcardsCommand = {
-      user_id: user.id,
-      source_text: requestData.source_text,
-      source_text_id: undefined, // Not needed for regeneration
-      max_flashcards: 1, // Only generate one replacement
-      model: requestData.model || "openai/gpt-4o-mini",
-      category_ids: requestData.category_ids || [],
-      group_ids: requestData.group_ids || [],
-    };
+    // Note: generationCommand was removed as it's not used
 
     // Initialize AI generation service
     const aiGenerationService = new AIGenerationService(supabase);
@@ -93,7 +83,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/flashcards/regenerate error:", error);
 
     const errorResponse: ErrorResponseDTO = {

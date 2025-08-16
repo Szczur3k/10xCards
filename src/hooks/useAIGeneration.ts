@@ -8,7 +8,7 @@ import type {
   GenerateFlashcardsResponseDTO,
 } from "../types";
 import React from "react";
-import { ErrorHandlerService } from "../lib/services/error-handler.service";
+import { parseApiError, handleError } from "../lib/services/error-handler.service";
 
 // Simple API functions
 const api = {
@@ -24,7 +24,7 @@ const api = {
     });
 
     if (!response.ok) {
-      const errorMessage = await ErrorHandlerService.parseApiError(response);
+      const errorMessage = await parseApiError(response);
       throw new Error(errorMessage);
     }
 
@@ -35,7 +35,7 @@ const api = {
     const response = await fetch("/api/flashcards/models");
 
     if (!response.ok) {
-      const errorMessage = await ErrorHandlerService.parseApiError(response);
+      const errorMessage = await parseApiError(response);
       throw new Error(errorMessage);
     }
 
@@ -82,7 +82,7 @@ export function useAIGeneration() {
       setDefaultModel(defaultModel);
     } catch (error) {
       console.error("Error loading models:", error);
-      const errorMessage = ErrorHandlerService.handleError(error);
+      const errorMessage = handleError(error);
       addToast({
         type: "error",
         title: "Błąd ładowania modeli",
@@ -151,7 +151,7 @@ export function useAIGeneration() {
     },
     onError: (error) => {
       console.error("Generation failed:", error);
-      const errorMessage = ErrorHandlerService.handleError(error);
+      const errorMessage = handleError(error);
 
       setGenerationState({
         isGenerating: false,

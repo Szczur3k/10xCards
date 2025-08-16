@@ -27,19 +27,25 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         headers: { "Content-Type": "application/json" },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Signout endpoint error:", error);
 
     // Handle structured errors from service
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 500,
+        status: typedError.statusCode || 500,
         headers: { "Content-Type": "application/json" },
       });
     }

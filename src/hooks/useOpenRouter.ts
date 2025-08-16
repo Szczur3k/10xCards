@@ -4,7 +4,7 @@ import type { ChatMessage, ChatOptions, JsonSchema } from "../lib/services/openr
 interface OpenRouterResponse {
   success: boolean;
   message?: string;
-  data?: any;
+  data?: unknown;
   usage?: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -18,7 +18,7 @@ interface OpenRouterResponse {
 interface OpenRouterError {
   error: string;
   code: string;
-  details?: any;
+  details?: unknown;
 }
 
 export function useOpenRouter() {
@@ -64,7 +64,7 @@ export function useOpenRouter() {
     model: string,
     schema: JsonSchema,
     options?: ChatOptions
-  ): Promise<{ data: T; usage: any; model: string }> => {
+  ): Promise<{ data: T; usage: unknown; model: string }> => {
     setIsLoading(true);
     setError(null);
 

@@ -1,4 +1,4 @@
-import type { SignupCommand, SigninCommand, SignoutCommand, AuthResponseDTO, UserDTO, SessionDTO } from "../../types";
+import type { SignupCommand, SigninCommand, AuthResponseDTO, UserDTO } from "../../types";
 import type { AstroCookies } from "astro";
 import { createSupabaseServerClient } from "../../db/supabase.client";
 
@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "../../db/supabase.client";
  * AuthService - handles authentication operations with Supabase SSR
  */
 export class AuthService {
-  private supabase: any;
+  private supabase: ReturnType<typeof createSupabaseServerClient>;
 
   constructor(context: { headers: Headers; cookies: AstroCookies }) {
     this.supabase = createSupabaseServerClient(context);
@@ -94,7 +94,7 @@ export class AuthService {
   /**
    * Sign out user
    */
-  async signout(command: SignoutCommand): Promise<void> {
+  async signout(): Promise<void> {
     try {
       const { error } = await this.supabase.auth.signOut();
 
@@ -136,7 +136,7 @@ export class AuthService {
 
       return {
         id: user.id,
-        email: user.email!,
+        email: user.email || "",
         role: "user", // Default role, could be enhanced with user profile lookup
         created_at: user.created_at,
       };
@@ -171,17 +171,20 @@ export class AuthService {
   /**
    * Format Supabase auth response to our DTO format
    */
-  private formatAuthResponse(data: any): AuthResponseDTO {
+  private formatAuthResponse(data: Record<string, unknown>): AuthResponseDTO {
+    const user = data.user as Record<string, unknown>;
+    const session = data.session as Record<string, unknown>;
+
     return {
       user: {
-        id: data.user.id,
-        email: data.user.email!,
+        id: user.id as string,
+        email: (user.email as string) || "",
         role: "user", // Default role
-        created_at: data.user.created_at,
+        created_at: user.created_at as string,
       },
       session: {
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
+        access_token: session.access_token as string,
+        refresh_token: session.refresh_token as string,
       },
     };
   }
@@ -255,6 +258,7 @@ export class AuthService {
   /**
    * Map Supabase auth errors to our error format
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapSupabaseAuthError(error: any) {
     console.error("Supabase auth error:", error);
 

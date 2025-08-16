@@ -8,18 +8,18 @@ import { useToast } from "../components/providers/ToastProvider";
  */
 export type BulkOperationType = "delete" | "change_status" | "assign_categories" | "assign_groups";
 
-/**
- * Bulk operation request data
- */
-interface BulkOperationRequest {
-  flashcard_ids: string[];
-  operation: BulkOperationType;
-  data?: {
-    status?: FlashcardStatus;
-    category_ids?: string[];
-    group_ids?: string[];
-  };
-}
+// /**
+//  * Bulk operation request data
+//  */
+// interface BulkOperationRequest {
+//   flashcard_ids: string[];
+//   operation: BulkOperationType;
+//   data?: {
+//     status?: FlashcardStatus;
+//     category_ids?: string[];
+//     group_ids?: string[];
+//   };
+// }
 
 /**
  * API functions for bulk operations
@@ -218,7 +218,7 @@ export function useBulkOperations() {
     onMutate: () => {
       setBulkState((prev) => ({ ...prev, isProcessing: true, operation: "assign_categories" }));
     },
-    onSuccess: (_, { category_ids }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["flashcards"] });
 
       addToast({
@@ -246,7 +246,7 @@ export function useBulkOperations() {
     onMutate: () => {
       setBulkState((prev) => ({ ...prev, isProcessing: true, operation: "assign_groups" }));
     },
-    onSuccess: (_, { group_ids }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["flashcards"] });
 
       addToast({

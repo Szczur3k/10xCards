@@ -31,7 +31,7 @@ export async function DELETE(context: APIContext): Promise<Response> {
     let requestData: unknown;
     try {
       requestData = await context.request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -67,18 +67,24 @@ export async function DELETE(context: APIContext): Promise<Response> {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("DELETE /api/flashcards/bulk error:", error);
 
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -121,7 +127,7 @@ export async function PUT(context: APIContext): Promise<Response> {
     let requestData: unknown;
     try {
       requestData = await context.request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -137,7 +143,7 @@ export async function PUT(context: APIContext): Promise<Response> {
     const { operation, flashcard_ids, data } = requestData as {
       operation: string;
       flashcard_ids: string[];
-      data?: any;
+      data?: Record<string, unknown>;
     };
 
     if (!operation || !flashcard_ids || !Array.isArray(flashcard_ids)) {
@@ -224,18 +230,24 @@ export async function PUT(context: APIContext): Promise<Response> {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("PUT /api/flashcards/bulk error:", error);
 
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -278,7 +290,7 @@ export async function POST(context: APIContext): Promise<Response> {
     let requestData: unknown;
     try {
       requestData = await context.request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -305,7 +317,11 @@ export async function POST(context: APIContext): Promise<Response> {
       );
     }
 
-    const { operation, flashcard_ids, ...operationData } = requestData as any;
+    const { operation, flashcard_ids, ...operationData } = requestData as {
+      operation: string;
+      flashcard_ids: string[];
+      [key: string]: unknown;
+    };
 
     if (!operation || !flashcard_ids || !Array.isArray(flashcard_ids)) {
       return new Response(
@@ -331,7 +347,7 @@ export async function POST(context: APIContext): Promise<Response> {
         break;
 
       case "change_status":
-        if (!operationData.status) {
+        if (!operationData.status || typeof operationData.status !== "string") {
           return new Response(
             JSON.stringify({
               error: "INVALID_REQUEST",
@@ -343,7 +359,11 @@ export async function POST(context: APIContext): Promise<Response> {
             }
           );
         }
-        result = await flashcardService.bulkChangeStatus(flashcard_ids, operationData.status, user.id);
+        result = await flashcardService.bulkChangeStatus(
+          flashcard_ids,
+          operationData.status as "draft" | "published" | "archived",
+          user.id
+        );
         break;
 
       case "assign_categories":
@@ -395,19 +415,25 @@ export async function POST(context: APIContext): Promise<Response> {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/flashcards/bulk error:", error);
 
     // Handle service errors
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }

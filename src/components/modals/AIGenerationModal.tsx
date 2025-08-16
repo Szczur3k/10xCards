@@ -174,13 +174,14 @@ export function AIGenerationModal({ isOpen, onClose, onGenerate, onOpenReview }:
               {/* Source Text */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                  <label htmlFor="source-text" className="text-sm font-medium flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Tekst źródłowy
                   </label>
                   <div className="text-xs text-muted-foreground">{characterCount}/10,000 znaków</div>
                 </div>
                 <textarea
+                  id="source-text"
                   value={sourceText}
                   onChange={(e) => setSourceText(e.target.value)}
                   placeholder="Wklej tutaj tekst, na podstawie którego AI wygeneruje fiszki..."
@@ -203,7 +204,7 @@ export function AIGenerationModal({ isOpen, onClose, onGenerate, onOpenReview }:
 
               {/* Model Selection */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label htmlFor="ai-model" className="text-sm font-medium flex items-center gap-2">
                   <Zap className="w-4 h-4" />
                   Model AI
                 </label>
@@ -211,6 +212,7 @@ export function AIGenerationModal({ isOpen, onClose, onGenerate, onOpenReview }:
                   <div className="h-10 bg-muted animate-pulse rounded-md" />
                 ) : (
                   <select
+                    id="ai-model"
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -229,11 +231,12 @@ export function AIGenerationModal({ isOpen, onClose, onGenerate, onOpenReview }:
 
               {/* Max Cards */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label htmlFor="max-cards" className="text-sm font-medium flex items-center gap-2">
                   <Hash className="w-4 h-4" />
                   Maksymalna liczba fiszek
                 </label>
                 <Input
+                  id="max-cards"
                   type="number"
                   min="1"
                   max="100"
@@ -247,7 +250,7 @@ export function AIGenerationModal({ isOpen, onClose, onGenerate, onOpenReview }:
 
               {/* Categories (Optional) */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label htmlFor="categories" className="text-sm font-medium flex items-center gap-2">
                   <Tag className="w-4 h-4" />
                   Kategorie (opcjonalne)
                 </label>
@@ -267,7 +270,7 @@ export function AIGenerationModal({ isOpen, onClose, onGenerate, onOpenReview }:
 
               {/* Groups (Optional) */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
+                <label htmlFor="groups" className="text-sm font-medium flex items-center gap-2">
                   <Users className="w-4 h-4" />
                   Grupy (opcjonalne)
                 </label>

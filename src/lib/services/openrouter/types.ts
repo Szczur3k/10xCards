@@ -21,14 +21,14 @@ export interface ResponseFormat {
   json_schema: {
     name: string;
     strict: boolean;
-    schema: Record<string, any>;
+    schema: Record<string, unknown>;
   };
 }
 
 export interface JsonSchema {
   name: string;
   strict: boolean;
-  schema: Record<string, any>;
+  schema: Record<string, unknown>;
 }
 
 export interface ChatResponse {
@@ -36,11 +36,11 @@ export interface ChatResponse {
   object: string;
   created: number;
   model: string;
-  choices: Array<{
+  choices: {
     index: number;
     message: ChatMessage;
     finish_reason: string;
-  }>;
+  }[];
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -63,14 +63,14 @@ export interface ChatChunk {
   object: string;
   created: number;
   model: string;
-  choices: Array<{
+  choices: {
     index: number;
     delta: {
       role?: string;
       content?: string;
     };
     finish_reason?: string;
-  }>;
+  }[];
 }
 
 export interface ModelInfo {

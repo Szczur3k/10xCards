@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../db/database.types";
 import type {
-  CreateSourceTextCommand,
   SourceTextDTO,
   SourceTextListResponseDTO,
   SourceTextDetailDTO,
@@ -67,12 +66,15 @@ export class SourceTextService {
       }
 
       // Transform data to DTOs
-      const sourceTextDTOs: SourceTextDTO[] = (sourceTexts || []).map((sourceText: any) => ({
-        id: sourceText.id,
-        content: sourceText.content,
-        flashcard_count: sourceText.flashcards?.length || 0,
-        created_at: sourceText.created_at,
-      }));
+      const sourceTextDTOs: SourceTextDTO[] = (sourceTexts || []).map((sourceText: unknown) => {
+        const typedSourceText = sourceText as Record<string, unknown>;
+        return {
+          id: typedSourceText.id as string,
+          content: typedSourceText.content as string,
+          flashcard_count: (typedSourceText.flashcards as unknown[])?.length || 0,
+          created_at: typedSourceText.created_at as string,
+        };
+      });
 
       // Calculate pagination metadata
       const total = totalCount || 0;
@@ -89,14 +91,14 @@ export class SourceTextService {
         data: sourceTextDTOs,
         pagination,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Re-throw known errors
-      if (error.type) {
+      if (error && typeof error === "object" && "type" in error) {
         throw error;
       }
 
       // Handle unexpected errors
-      console.error("SourceTextService.getSourceTexts unexpected error:", error);
+      // console.error("SourceTextService.getSourceTexts unexpected error:", error);
       throw {
         type: "INTERNAL_SERVER_ERROR",
         message: "Wystąpił nieoczekiwany błąd podczas pobierania tekstów źródłowych",
@@ -162,19 +164,22 @@ export class SourceTextService {
       const sourceTextDetailDTO: SourceTextDetailDTO = {
         id: sourceText.id,
         content: sourceText.content,
-        flashcards: (sourceText.flashcards || []).map((flashcard: any) => ({
-          id: flashcard.id,
-          front: flashcard.front,
-          back: flashcard.back,
-          status: flashcard.status,
-        })),
+        flashcards: (sourceText.flashcards || []).map((flashcard: unknown) => {
+          const typedFlashcard = flashcard as Record<string, unknown>;
+          return {
+            id: typedFlashcard.id as string,
+            front: typedFlashcard.front as string,
+            back: typedFlashcard.back as string,
+            status: typedFlashcard.status as "draft" | "published" | "archived" | null,
+          };
+        }),
         created_at: sourceText.created_at,
       };
 
       return sourceTextDetailDTO;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Re-throw known errors
-      if (error.type) {
+      if (error && typeof error === "object" && "type" in error) {
         throw error;
       }
 

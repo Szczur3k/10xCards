@@ -22,14 +22,14 @@ if (Astro.request.method === "POST") {
     });
 
     // Attempt signin
-    const result = await authService.signin({ email, password });
+    await authService.signin({ email, password });
 
     // Get return URL
     const returnUrl = new URL(Astro.request.url).searchParams.get("return") || "/flashcards";
 
     // Redirect on success
     return Astro.redirect(returnUrl);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Login error:", error);
     // Error will be handled by client-side for better UX
   }
@@ -191,7 +191,7 @@ const csrfToken = Astro.locals.csrfToken;
         }
 
         if (response.ok) {
-          const data = await response.json();
+          await response.json();
 
           // Show success toast
           toast.success("Zalogowano pomyślnie!");
@@ -257,4 +257,3 @@ const csrfToken = Astro.locals.csrfToken;
     });
   </script>
 </Layout>
-

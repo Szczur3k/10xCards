@@ -8,7 +8,7 @@ interface BulkOperationsBarProps {
   selectedCount: number;
   isProcessing: boolean;
   currentOperation?: BulkOperationType;
-  onBulkOperation: (operation: BulkOperationType, data?: any) => void;
+  onBulkOperation: (operation: BulkOperationType, data?: unknown) => void;
   onClearSelection: () => void;
 }
 
@@ -206,7 +206,16 @@ export function BulkOperationsBar({
       )}
 
       {/* Click outside to close status menu */}
-      {showStatusMenu && <div className="fixed inset-0 z-40" onClick={() => setShowStatusMenu(false)} />}
+      {showStatusMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowStatusMenu(false)}
+          onKeyDown={(e) => e.key === "Escape" && setShowStatusMenu(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Zamknij menu statusu"
+        />
+      )}
     </>
   );
 }

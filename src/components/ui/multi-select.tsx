@@ -203,7 +203,7 @@ export function MultiSelect({
                     ) : (
                       <Plus className="w-4 h-4" />
                     )}
-                    {createLabel} "{searchQuery}"
+                    {createLabel} &quot;{searchQuery}&quot;
                   </Button>
                 )}
               </div>
@@ -256,7 +256,7 @@ export function MultiSelect({
                 ) : (
                   <Plus className="w-4 h-4" />
                 )}
-                {createLabel} "{searchQuery}"
+                {createLabel} &quot;{searchQuery}&quot;
               </Button>
             </div>
           )}

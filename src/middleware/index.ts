@@ -1,6 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 import { createSupabaseServerClient } from "../db/supabase.client";
-import { CSRFProtection } from "../lib/middleware/csrf";
+import { getCSRFToken, setCSRFToken } from "../lib/middleware/csrf";
 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ["/flashcards"];
@@ -9,7 +9,7 @@ const PROTECTED_ROUTES = ["/flashcards"];
 const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 // API routes that don't need CSRF protection
-const CSRF_EXEMPT_ROUTES = ["/api/auth/refresh"];
+// const CSRF_EXEMPT_ROUTES = ["/api/auth/refresh"];
 
 /**
  * Authentication and security middleware
@@ -42,7 +42,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       isAuthenticated = true;
       user = {
         id: supabaseUser.id,
-        email: supabaseUser.email!,
+        email: supabaseUser.email || "",
         role: "user", // Default role
         created_at: supabaseUser.created_at,
       };
@@ -59,9 +59,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Set CSRF token for authenticated users and forms
   if (isAuthenticated || AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
     // Ensure CSRF token exists
-    let csrfToken = CSRFProtection.getCSRFToken(cookies);
+    let csrfToken = getCSRFToken(cookies);
     if (!csrfToken) {
-      csrfToken = CSRFProtection.setCSRFToken(cookies);
+      csrfToken = setCSRFToken(cookies);
     }
 
     // Add CSRF token to locals for use in templates
@@ -89,7 +89,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
           if (decodedUrl.startsWith("/") && !decodedUrl.startsWith("//")) {
             return redirect(decodedUrl);
           }
-        } catch (error) {
+        } catch {
           console.error("Invalid return URL:", returnUrl);
         }
       }

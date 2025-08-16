@@ -36,19 +36,25 @@ export async function GET(context: APIContext): Promise<Response> {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GET /api/groups error:", error);
 
     // Handle service errors
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -92,7 +98,7 @@ export async function POST(context: APIContext): Promise<Response> {
     let requestData: unknown;
     try {
       requestData = await context.request.json();
-    } catch (error) {
+    } catch {
       return new Response(
         JSON.stringify({
           error: "INVALID_JSON",
@@ -109,18 +115,22 @@ export async function POST(context: APIContext): Promise<Response> {
     let validatedData;
     try {
       validatedData = createGroupRequestSchema.parse(requestData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorResponse: ErrorResponseDTO = {
         error: "VALIDATION_ERROR",
         message: "Nieprawidłowe dane wejściowe",
-        details: error.errors
-          ? error.errors.reduce((acc: any, err: any) => {
-              const field = err.path.join(".");
-              if (!acc[field]) acc[field] = [];
-              acc[field].push(err.message);
-              return acc;
-            }, {})
-          : {},
+        details:
+          error && typeof error === "object" && "errors" in error
+            ? (error as { errors: { path: (string | number)[]; message: string }[] }).errors.reduce(
+                (acc: Record<string, string[]>, err) => {
+                  const field = err.path.join(".");
+                  if (!acc[field]) acc[field] = [];
+                  acc[field].push(err.message);
+                  return acc;
+                },
+                {}
+              )
+            : {},
       };
 
       return new Response(JSON.stringify(errorResponse), {
@@ -143,7 +153,7 @@ export async function POST(context: APIContext): Promise<Response> {
       status: 201,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/groups error:", error);
 
     // Handle validation errors
@@ -151,7 +161,7 @@ export async function POST(context: APIContext): Promise<Response> {
       const errorResponse: ErrorResponseDTO = {
         error: error.type,
         message: error.message,
-        details: error.details,
+        details: (error as { details?: Record<string, string[]> }).details,
       };
 
       return new Response(JSON.stringify(errorResponse), {

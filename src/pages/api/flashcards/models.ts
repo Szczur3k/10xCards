@@ -50,19 +50,25 @@ export async function GET(context: APIContext): Promise<Response> {
         "X-Available-Models": modelsResponse.stats.available_models.toString(),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GET /api/flashcards/models error:", error);
 
     // Handle service-specific errors
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 500,
+        status: typedError.statusCode || 500,
         headers: { "Content-Type": "application/json" },
       });
     }

@@ -1,11 +1,5 @@
 import type { APIRoute } from "astro";
-import type { Database } from "../../../db/database.types";
-import type {
-  GenerateFlashcardsRequestDTO,
-  GenerateFlashcardsResponseDTO,
-  ErrorResponseDTO,
-  GenerateFlashcardsCommand,
-} from "../../../types";
+import type { GenerateFlashcardsResponseDTO, ErrorResponseDTO } from "../../../types";
 import { AIGenerationService } from "../../../lib/services/ai-generation.service";
 import { validateGenerateFlashcardsRequest } from "../../../lib/validation/flashcard.schemas";
 
@@ -29,7 +23,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let requestData: unknown;
     try {
       requestData = await request.json();
-    } catch (error) {
+    } catch {
       const errorResponse: ErrorResponseDTO = {
         error: "INVALID_JSON",
         message: "Nieprawidłowy format JSON w żądaniu",
@@ -46,15 +40,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!validation.success) {
       console.error("Validation failed:", JSON.stringify(validation.error, null, 2));
       return new Response(JSON.stringify(validation.error), {
-        status: validation.error!.statusCode,
+        status: validation.error?.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    const validatedData = validation.data!;
+    const validatedData = validation.data;
+    if (!validatedData) {
+      return new Response(
+        JSON.stringify({
+          error: "VALIDATION_ERROR",
+          message: "Brak zwalidowanych danych",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
 
-    // Create generation command
-    const generationCommand: GenerateFlashcardsCommand = {
+    // Initialize AI generation service
+    const aiGenerationService = new AIGenerationService(supabase);
+    const result: GenerateFlashcardsResponseDTO = await aiGenerationService.generateOrRegenerateFlashcards({
       user_id: user.id,
       source_text: validatedData.source_text,
       source_text_id: validatedData.source_text_id,
@@ -62,30 +69,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
       model: validatedData.model,
       category_ids: validatedData.category_ids || [],
       group_ids: validatedData.group_ids || [],
-    };
-
-    // Initialize AI generation service
-    const aiGenerationService = new AIGenerationService(supabase);
-    const result: GenerateFlashcardsResponseDTO =
-      await aiGenerationService.generateOrRegenerateFlashcards(generationCommand);
+    });
 
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/flashcards/generate error:", error);
 
     // Handle validation errors
     if (error && typeof error === "object" && "type" in error) {
+      const typedError = error as {
+        type: string;
+        message: string;
+        details?: Record<string, string[]>;
+        statusCode?: number;
+      };
       const errorResponse: ErrorResponseDTO = {
-        error: error.type,
-        message: error.message,
-        details: error.details,
+        error: typedError.type,
+        message: typedError.message,
+        details: typedError.details,
       };
 
       return new Response(JSON.stringify(errorResponse), {
-        status: error.statusCode || 400,
+        status: typedError.statusCode || 400,
         headers: { "Content-Type": "application/json" },
       });
     }

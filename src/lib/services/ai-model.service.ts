@@ -22,12 +22,12 @@ const DEFAULT_SELECTION_STRATEGY = {
   fallback_to_free: true,
 };
 
-/**
- * Environment variable mapping for API key providers
- */
-const API_KEY_ENV_MAP = {
-  openrouter: "OPENROUTER_API_KEY",
-} as const;
+// /**
+//  * Environment variable mapping for API key providers
+//  */
+// const API_KEY_ENV_MAP = {
+//   openrouter: "OPENROUTER_API_KEY",
+// } as const;
 
 /**
  * Service for managing AI models availability and selection
@@ -89,7 +89,7 @@ export class AIModelService {
       const modelAvailabilities = await this.checkAllModelsAvailability(dbModels);
 
       // Transform database models to DTOs with availability
-      const models: AIModelDTO[] = dbModels.map((dbModel: any) => {
+      const models: AIModelDTO[] = dbModels.map((dbModel: unknown) => {
         const availability = modelAvailabilities.find((a) => a.model_id === dbModel.id);
         const isDefault = dbModel.recommended_for?.includes("default") || false;
 
@@ -138,7 +138,7 @@ export class AIModelService {
         },
         stats,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Re-throw known errors
       if (error.type) {
         throw error;
@@ -179,7 +179,7 @@ export class AIModelService {
    * @param models - Array of models to check availability for
    * @returns Promise<ModelAvailabilityDTO[]> - Availability status for all models
    */
-  private async checkAllModelsAvailability(models: any[]): Promise<ModelAvailabilityDTO[]> {
+  private async checkAllModelsAvailability(models: unknown[]): Promise<ModelAvailabilityDTO[]> {
     const availabilities: ModelAvailabilityDTO[] = [];
 
     for (const model of models) {
@@ -195,7 +195,7 @@ export class AIModelService {
    * @param model - Model from database to check
    * @returns Promise<ModelAvailabilityDTO> - Availability status
    */
-  private async checkModelAvailability(model: any): Promise<ModelAvailabilityDTO> {
+  private async checkModelAvailability(model: unknown): Promise<ModelAvailabilityDTO> {
     // All models require OpenRouter API key
     if (model.requires_api_key) {
       const apiKeyConfigured = this.isOpenRouterAPIKeyConfigured();
@@ -233,8 +233,10 @@ export class AIModelService {
     const now = Date.now();
 
     // Check cache first
-    if (this.apiKeyCache.has(cacheKey) && this.cacheExpiry.get(cacheKey)! > now) {
-      return this.apiKeyCache.get(cacheKey)!;
+    const expiry = this.cacheExpiry.get(cacheKey);
+    if (this.apiKeyCache.has(cacheKey) && expiry && expiry > now) {
+      const cached = this.apiKeyCache.get(cacheKey);
+      return cached || false;
     }
 
     // Check environment variable (both import.meta.env and process.env for compatibility)

@@ -158,7 +158,7 @@ export class GroupService {
     }
 
     // Update group
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (command.name !== undefined) updateData.name = command.name;
     if (command.description !== undefined) updateData.description = command.description;
 
