@@ -40,3 +40,32 @@ BEGIN
   END IF;
 END
 $$;
+
+-- Jak w Supabase: RLS używa auth.uid() — claim `sub` z JWT (PostgREST: request.jwt.claim.*).
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SET search_path TO ''
+AS $$
+  SELECT COALESCE(
+    NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid,
+    (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION auth.role()
+RETURNS text
+LANGUAGE sql
+STABLE
+SET search_path TO ''
+AS $$
+  SELECT COALESCE(
+    NULLIF(current_setting('request.jwt.claim.role', true), ''),
+    (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION auth.role() TO anon, authenticated, service_role;
