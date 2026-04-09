@@ -20,7 +20,7 @@ Zmienne serwerowe są podpinane w `astro.config.mjs` (`SUPABASE_`*, `MOCK_AUTH`,
 
 ## Supabase — czego potrzebujesz (logicznie)
 
-Biblioteka oczekuje **jednego** hosta ze ścieżkami `/auth/v1/*` (GoTrue) i `/rest/v1/*` (PostgREST). W Dockerze robi to `fiszki-gateway`; **nie** musi to być adres publiczny ani domenowy.
+Klient Supabase w kodzie oczekuje **jednego** `SUPABASE_URL` w stylu chmury: ten sam host obsługuje ścieżki `/auth/v1/*` (GoTrue) i `/rest/v1/*` (PostgREST). Stąd:
 
 
 | Komponent                       | Rola w tej aplikacji                                                                               |
@@ -65,19 +65,42 @@ Obraz DB: `supabase/postgres:17.6.1.106` (PostgreSQL 17 w obrazie Supabase). `su
 
 ```powershell
 Copy-Item .env.example .env
-# Uzupełnij SUPABASE_KEY, OPENROUTER_API_KEY (SUPABASE_URL możesz pominąć — domyślnie wewnętrzny gateway)
+# Uzupełnij SUPABASE_KEY, OPENROUTER_API_KEY
 docker compose up -d --build
 ```
 
-### Domena, Cloudflare Tunnel, NPM
+### Postgres: migracje i ponowny start
 
-Kontenery **nie muszą** znać domeny. `SUPABASE_URL` domyślnie to `http://fiszki-gateway:8000` — ruch Postgres / Auth / REST zamyka się w sieci Docker między `fiszki-web` a resztą stacku.
+Obraz Postgres **ignoruje** podkatalog `migrations/` w `docker-entrypoint-initdb.d` — w repo jest `docker/postgres/01-run-migrations.sh`, który uruchamia pliki z `supabase/migrations/` (sort `V`), potem `09-seed.sql`.
 
-Na brzegu (Cloudflare Tunnel → port na hoście → Twój nginx / NPM) ustawiasz tylko **aplikację**, np. forward na `http://127.0.0.1:3001` (albo IP VM + port). **Nie** musisz wystawiać osobnego URL dla „API Supabase”.
+Jeśli `fiszki-postgres` padł przy pierwszym init (np. błąd seed), **usuń volume** z danymi (`docker compose down`, potem `docker volume rm <nazwa>_supabase_db` — nazwę zobaczysz w `docker volume ls`) i odpal ponownie. Initdb wykonuje się tylko przy **pustym** volume.
 
-**GoTrue (`SITE_URL`, `URI_ALLOW_LIST`):** ustaw w `.env` dopiero wtedy, gdy logujesz się spoza `localhost` — na adres, który faktycznie widzisz w przeglądarce (tunnel, IP:port). Dotyczy redirectów (np. reset hasła), nie „domeny bazy”.
+### Nginx Proxy Manager (masz już NPM na VM)
 
-Cookie `secure` w produkcji za HTTPS — wtedy i tak adres apki pochodzi z tunelu/NPM, nie z konfiguracji Postgresa.
+1. **Sieć Docker** — kontener NPM musi widzieć `fiszki-gateway` i `fiszki-web` po nazwie. Po starcie stacku:
+   ```powershell
+   docker network connect fiszki-net nginx-proxy-manager
+   ```
+   (jeśli kontener NPM nazywa się inaczej — podmień nazwę).
+
+2. **Dwa proxy hosty** (subdomena pod API jest konieczna — jeden `SUPABASE_URL` dla JS):
+
+   | Domena (przykład) | Forward |
+   |-------------------|---------|
+   | `fiszki.szczur3k-home.loan` | `http://fiszki-web:3001` |
+   | `fiszki-api.szczur3k-home.loan` | `http://fiszki-gateway:8000` |
+
+   SSL: Let’s Encrypt w NPM. **Websockets:** w NPM włącz, jeśli kiedyś dodasz Realtime.
+
+3. **`.env` na VM**
+
+   - `SUPABASE_URL=https://fiszki-api.szczur3k-home.loan` (bez `/` na końcu)
+   - `SITE_URL=https://fiszki.szczur3k-home.loan`
+   - `URI_ALLOW_LIST=https://fiszki.szczur3k-home.loan`
+
+Cookie auth w produkcji wymaga **HTTPS** (`secure` w `src/db/supabase.client.ts`).
+
+**Dlaczego jest `fiszki-gateway` skoro masz NPM?** NPM tylko **terminuje TLS** i przekazuje ruch do jednego upstreamu. Klient `@supabase/supabase-js` i tak potrzebuje **jednego** hosta z ścieżkami `/auth/v1` i `/rest/v1`. Wewnętrzny nginx w compose robi to samo co Kong w chmurze — to nie drugi „publiczny” serwer WWW obok NPM.
 
 ### Uwaga do Dockerfile
 
@@ -96,9 +119,9 @@ Domyślnie dev server na porcie **3000** (`astro.config.mjs`). Pełny stack Supa
 
 Skopiuj `.env.example` → `.env`. Minimalnie:
 
-- `SUPABASE_KEY`, `OPENROUTER_API_KEY`
-- `SUPABASE_URL` — opcjonalnie; w Dockerze domyślnie `http://fiszki-gateway:8000`
-- `SITE_URL` / `URI_ALLOW_LIST` — gdy nie używasz localhost (tunnel, LAN IP)
+- `SUPABASE_URL`, `SUPABASE_KEY`
+- `OPENROUTER_API_KEY` (generowanie fiszek)
+- przy Dockerze: `SITE_URL`, `URI_ALLOW_LIST` zgodne z adresem, pod którym wchodzisz do aplikacji
 
 ## Skrypty npm
 
