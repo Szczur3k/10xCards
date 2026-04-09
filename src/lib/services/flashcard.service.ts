@@ -1,0 +1,976 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../../db/database.types";
+import type {
+  CreateFlashcardCommand,
+  FlashcardDTO,
+  FlashcardQueryParams,
+  FlashcardListResponseDTO,
+  PaginationDTO,
+  UpdateFlashcardCommand,
+  ReviewFlashcardCommand,
+  FlashcardStatus,
+} from "../../types";
+
+/**
+ * Service for managing flashcard operations
+ * Handles business logic and database interactions
+ */
+export class FlashcardService {
+  constructor(private supabase: SupabaseClient<Database>) {}
+
+  /**
+   * Creates a new flashcard with categories and groups
+   * @param command - CreateFlashcardCommand with all required data
+   * @returns Promise<FlashcardDTO> - Created flashcard with full data
+   */
+  async createFlashcard(command: CreateFlashcardCommand): Promise<FlashcardDTO> {
+    // Start database transaction
+    const { data: flashcard, error: flashcardError } = await this.supabase
+      .from("flashcards")
+      .insert({
+        front: command.front,
+        back: command.back,
+        creation_type: command.creation_type,
+        status: command.status || "draft",
+        user_id: command.user_id,
+        source_text_id: command.source_text_id || null,
+      })
+      .select("*")
+      .single();
+
+    if (flashcardError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas tworzenia fiszki",
+        details: { database: [flashcardError.message] },
+        statusCode: 500,
+      };
+    }
+
+    if (!flashcard) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Nie udało się utworzyć fiszki",
+        statusCode: 500,
+      };
+    }
+
+    // Validate and create category relationships
+    let categories: { id: string; name: string }[] = [];
+    if (command.category_ids && command.category_ids.length > 0) {
+      categories = await this.createCategoryRelationships(flashcard.id, command.category_ids);
+    }
+
+    // Validate and create group relationships
+    let groups: { id: string; name: string }[] = [];
+    if (command.group_ids && command.group_ids.length > 0) {
+      groups = await this.createGroupRelationships(flashcard.id, command.group_ids);
+    }
+
+    // Return complete FlashcardDTO
+    return {
+      id: flashcard.id,
+      front: flashcard.front,
+      back: flashcard.back,
+      creation_type: flashcard.creation_type,
+      status: flashcard.status,
+      source_text_id: flashcard.source_text_id,
+      categories,
+      groups,
+      created_at: flashcard.created_at,
+      updated_at: flashcard.updated_at,
+    };
+  }
+
+  /**
+   * Creates relationships between flashcard and categories
+   * @param flashcardId - UUID of the flashcard
+   * @param categoryIds - Array of category UUIDs
+   * @returns Promise<Array<{id: string, name: string}>> - Category data
+   */
+  private async createCategoryRelationships(
+    flashcardId: string,
+    categoryIds: string[]
+  ): Promise<{ id: string; name: string }[]> {
+    // First validate that all categories exist
+    const { data: existingCategories, error: categoriesError } = await this.supabase
+      .from("categories")
+      .select("id, name")
+      .in("id", categoryIds);
+
+    if (categoriesError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania kategorii",
+        details: { database: [categoriesError.message] },
+        statusCode: 500,
+      };
+    }
+
+    if (!existingCategories || existingCategories.length !== categoryIds.length) {
+      const foundIds = existingCategories?.map((c) => c.id) || [];
+      const missingIds = categoryIds.filter((id) => !foundIds.includes(id));
+
+      throw {
+        type: "NOT_FOUND_ERROR",
+        message: "Niektóre kategorie nie zostały znalezione",
+        details: { category_ids: [`Nie znaleziono kategorii: ${missingIds.join(", ")}`] },
+        statusCode: 404,
+      };
+    }
+
+    // Create flashcard-category relationships
+    const categoryRelations = categoryIds.map((categoryId) => ({
+      flashcard_id: flashcardId,
+      category_id: categoryId,
+    }));
+
+    const { error: relationError } = await this.supabase.from("flashcard_categories").insert(categoryRelations);
+
+    if (relationError) {
+      // Cleanup: delete the flashcard if category relations failed
+      await this.supabase.from("flashcards").delete().eq("id", flashcardId);
+
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas przypisywania kategorii",
+        details: { database: [relationError.message] },
+        statusCode: 500,
+      };
+    }
+
+    return existingCategories;
+  }
+
+  /**
+   * Creates relationships between flashcard and groups
+   * @param flashcardId - UUID of the flashcard
+   * @param groupIds - Array of group UUIDs
+   * @returns Promise<Array<{id: string, name: string}>> - Group data
+   */
+  private async createGroupRelationships(
+    flashcardId: string,
+    groupIds: string[]
+  ): Promise<{ id: string; name: string }[]> {
+    // First validate that all groups exist
+    const { data: existingGroups, error: groupsError } = await this.supabase
+      .from("groups")
+      .select("id, name")
+      .in("id", groupIds);
+
+    if (groupsError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania grup",
+        details: { database: [groupsError.message] },
+        statusCode: 500,
+      };
+    }
+
+    if (!existingGroups || existingGroups.length !== groupIds.length) {
+      const foundIds = existingGroups?.map((g) => g.id) || [];
+      const missingIds = groupIds.filter((id) => !foundIds.includes(id));
+
+      throw {
+        type: "NOT_FOUND_ERROR",
+        message: "Niektóre grupy nie zostały znalezione",
+        details: { group_ids: [`Nie znaleziono grup: ${missingIds.join(", ")}`] },
+        statusCode: 404,
+      };
+    }
+
+    // Create flashcard-group relationships
+    const groupRelations = groupIds.map((groupId) => ({
+      flashcard_id: flashcardId,
+      group_id: groupId,
+    }));
+
+    const { error: relationError } = await this.supabase.from("flashcard_groups").insert(groupRelations);
+
+    if (relationError) {
+      // Cleanup: delete the flashcard if group relations failed
+      await this.supabase.from("flashcards").delete().eq("id", flashcardId);
+
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas przypisywania grup",
+        details: { database: [relationError.message] },
+        statusCode: 500,
+      };
+    }
+
+    return existingGroups;
+  }
+
+  /**
+   * Gets flashcards for a user with filtering, sorting and pagination
+   * @param userId - UUID of the user
+   * @param params - Query parameters for filtering and pagination
+   * @returns Promise<FlashcardListResponseDTO> - Paginated list of flashcards
+   */
+  async getFlashcards(userId: string, params: FlashcardQueryParams): Promise<FlashcardListResponseDTO> {
+    // Build the base query
+    let query = this.supabase
+      .from("flashcards")
+      .select(
+        `
+        *,
+        flashcard_categories (
+          categories (
+            id,
+            name
+          )
+        ),
+        flashcard_groups (
+          groups (
+            id,
+            name
+          )
+        )
+      `
+      )
+      .eq("user_id", userId);
+
+    // Apply filters
+    if (params.status) {
+      query = query.eq("status", params.status);
+    }
+
+    if (params.creation_type) {
+      query = query.eq("creation_type", params.creation_type);
+    }
+
+    // Note: Category and group filtering will be handled differently
+    // We'll filter after getting the data due to Supabase limitations with complex JOINs
+
+    // Apply sorting
+    const sortField = params.sort || "created_at";
+    const sortOrder = params.order || "desc";
+    query = query.order(sortField, { ascending: sortOrder === "asc" });
+
+    // Execute the main query (without pagination first, for filtering)
+    const { data: allFlashcards, error: flashcardsError } = await query;
+
+    if (flashcardsError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas pobierania fiszek",
+        details: { database: [flashcardsError.message] },
+        statusCode: 500,
+      };
+    }
+
+    if (!allFlashcards) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Nie udało się pobrać fiszek",
+        statusCode: 500,
+      };
+    }
+
+    // Transform data to FlashcardDTO format and apply client-side filtering
+    let flashcardDTOs: FlashcardDTO[] = allFlashcards.map((flashcard: unknown) => ({
+      id: (flashcard as Record<string, unknown>).id as string,
+      front: (flashcard as Record<string, unknown>).front as string,
+      back: (flashcard as Record<string, unknown>).back as string,
+      creation_type: (flashcard as Record<string, unknown>).creation_type as string,
+      status: (flashcard as Record<string, unknown>).status as string,
+      source_text_id: (flashcard as Record<string, unknown>).source_text_id as string | null,
+      categories:
+        (flashcard as Record<string, unknown>).flashcard_categories
+          ?.map((fc: unknown) => ({
+            id: ((fc as Record<string, unknown>).categories?.id as string) || "",
+            name: ((fc as Record<string, unknown>).categories?.name as string) || "",
+          }))
+          .filter((c: unknown) => (c as Record<string, unknown>).id) || [],
+      groups:
+        (flashcard as Record<string, unknown>).flashcard_groups
+          ?.map((fg: unknown) => ({
+            id: ((fg as Record<string, unknown>).groups?.id as string) || "",
+            name: ((fg as Record<string, unknown>).groups?.name as string) || "",
+          }))
+          .filter((g: unknown) => (g as Record<string, unknown>).id) || [],
+      created_at: (flashcard as Record<string, unknown>).created_at as string,
+      updated_at: (flashcard as Record<string, unknown>).updated_at as string,
+    }));
+
+    // Apply client-side filtering for categories and groups
+    if (params.category_id) {
+      flashcardDTOs = flashcardDTOs.filter((flashcard) =>
+        flashcard.categories.some((cat) => cat.id === params.category_id)
+      );
+    }
+
+    if (params.group_id) {
+      flashcardDTOs = flashcardDTOs.filter((flashcard) =>
+        flashcard.groups.some((group) => group.id === params.group_id)
+      );
+    }
+
+    // Apply pagination after filtering
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const total = flashcardDTOs.length;
+    const pages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const paginatedFlashcards = flashcardDTOs.slice(offset, offset + limit);
+
+    const pagination: PaginationDTO = {
+      page,
+      limit,
+      total,
+      pages,
+    };
+
+    return {
+      data: paginatedFlashcards,
+      pagination,
+    };
+  }
+
+  /**
+   * Validates if user has access to specific categories/groups
+   * Currently categories and groups are global, but this method
+   * provides foundation for future user-specific access control
+   */
+  // private async validateUserAccess(userId: string): Promise<boolean> {
+  //   // For MVP, all users have access to all categories and groups
+  //   // This method can be extended for user-specific permissions
+  //   return true;
+  // }
+
+  /**
+   * Gets a single flashcard by ID for the authenticated user
+   * @param id - UUID of the flashcard
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<FlashcardDTO> - Complete flashcard data with categories and groups
+   */
+  async getById(id: string, userId: string): Promise<FlashcardDTO> {
+    const { data: flashcard, error: flashcardError } = await this.supabase
+      .from("flashcards")
+      .select(
+        `
+        *,
+        source_texts (
+          id,
+          content
+        ),
+        flashcard_categories (
+          categories (
+            id,
+            name
+          )
+        ),
+        flashcard_groups (
+          groups (
+            id,
+            name
+          )
+        )
+      `
+      )
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single();
+
+    if (flashcardError) {
+      if (flashcardError.message === "Flashcard not found") {
+        throw {
+          type: "NOT_FOUND_ERROR",
+          message: "Fiszka nie została znaleziona",
+          details: { id: ["Fiszka o podanym ID nie istnieje lub nie masz do niej dostępu"] },
+          statusCode: 404,
+        };
+      }
+
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas pobierania fiszki",
+        details: { database: [flashcardError.message] },
+        statusCode: 500,
+      };
+    }
+
+    if (!flashcard) {
+      throw {
+        type: "NOT_FOUND_ERROR",
+        message: "Fiszka nie została znaleziona",
+        details: { id: ["Fiszka o podanym ID nie istnieje lub nie masz do niej dostępu"] },
+        statusCode: 404,
+      };
+    }
+
+    // Transform data to FlashcardDTO format
+    return {
+      id: flashcard.id,
+      front: flashcard.front,
+      back: flashcard.back,
+      creation_type: flashcard.creation_type,
+      status: flashcard.status,
+      source_text_id: flashcard.source_text_id,
+      source_text: flashcard.source_texts
+        ? {
+            id: flashcard.source_texts.id,
+            content: flashcard.source_texts.content,
+          }
+        : undefined,
+      categories:
+        flashcard.flashcard_categories
+          ?.map((fc: unknown) => ({
+            id: ((fc as Record<string, unknown>).categories?.id as string) || "",
+            name: ((fc as Record<string, unknown>).categories?.name as string) || "",
+          }))
+          .filter((c: unknown) => (c as Record<string, unknown>).id) || [],
+      groups:
+        flashcard.flashcard_groups
+          ?.map((fg: unknown) => ({
+            id: ((fg as Record<string, unknown>).categories?.id as string) || "",
+            name: ((fg as Record<string, unknown>).categories?.name as string) || "",
+          }))
+          .filter((g: unknown) => (g as Record<string, unknown>).id) || [],
+      created_at: flashcard.created_at,
+      updated_at: flashcard.updated_at,
+    };
+  }
+
+  /**
+   * Updates an existing flashcard
+   * @param command - UpdateFlashcardCommand with data to update
+   * @returns Promise<FlashcardDTO> - Updated flashcard with full data
+   */
+  async updateFlashcard(command: UpdateFlashcardCommand): Promise<FlashcardDTO> {
+    // First verify the flashcard exists and user has access
+    const existingFlashcard = await this.getById(command.id, command.user_id);
+
+    // Prepare update data
+    const updateData: Record<string, unknown> = {};
+    if (command.front !== undefined) updateData.front = command.front;
+    if (command.back !== undefined) updateData.back = command.back;
+    if (command.status !== undefined) updateData.status = command.status;
+    updateData.updated_at = new Date().toISOString();
+
+    // Update the flashcard
+    const { data: updatedFlashcard, error: updateError } = await this.supabase
+      .from("flashcards")
+      .update(updateData)
+      .eq("id", command.id)
+      .eq("user_id", command.user_id)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas aktualizacji fiszki",
+        details: { database: [updateError.message] },
+        statusCode: 500,
+      };
+    }
+
+    if (!updatedFlashcard) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Nie udało się zaktualizować fiszki",
+        statusCode: 500,
+      };
+    }
+
+    // Handle category and group updates if provided
+    let categories = existingFlashcard.categories;
+    let groups = existingFlashcard.groups;
+
+    if (command.category_ids !== undefined) {
+      // Delete existing category relationships
+      await this.supabase.from("flashcard_categories").delete().eq("flashcard_id", command.id);
+
+      // Create new category relationships if any
+      if (command.category_ids.length > 0) {
+        categories = await this.createCategoryRelationships(command.id, command.category_ids);
+      } else {
+        categories = [];
+      }
+    }
+
+    if (command.group_ids !== undefined) {
+      // Delete existing group relationships
+      await this.supabase.from("flashcard_groups").delete().eq("flashcard_id", command.id);
+
+      // Create new group relationships if any
+      if (command.group_ids.length > 0) {
+        groups = await this.createGroupRelationships(command.id, command.group_ids);
+      } else {
+        groups = [];
+      }
+    }
+
+    // Return complete FlashcardDTO
+    return {
+      id: updatedFlashcard.id,
+      front: updatedFlashcard.front,
+      back: updatedFlashcard.back,
+      creation_type: updatedFlashcard.creation_type,
+      status: updatedFlashcard.status,
+      source_text_id: updatedFlashcard.source_text_id,
+      categories,
+      groups,
+      created_at: updatedFlashcard.created_at,
+      updated_at: updatedFlashcard.updated_at,
+    };
+  }
+
+  /**
+   * Deletes a flashcard
+   * @param id - UUID of the flashcard to delete
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<void>
+   */
+  async deleteFlashcard(id: string, userId: string): Promise<void> {
+    // First verify the flashcard exists and user has access
+    await this.getById(id, userId);
+
+    // Delete the flashcard (cascading deletes will handle relationships)
+    const { error: deleteError } = await this.supabase.from("flashcards").delete().eq("id", id).eq("user_id", userId);
+
+    if (deleteError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas usuwania fiszki",
+        details: { database: [deleteError.message] },
+        statusCode: 500,
+      };
+    }
+  }
+
+  /**
+   * Reviews an AI-generated flashcard (accept/reject/edit)
+   * @param command - ReviewFlashcardCommand with review data
+   * @returns Promise<FlashcardDTO> - Updated flashcard with full data
+   */
+  async reviewFlashcard(command: ReviewFlashcardCommand): Promise<FlashcardDTO> {
+    // First verify the flashcard exists and user has access
+    const existingFlashcard = await this.getById(command.flashcardId, command.userId);
+
+    // Validate that this is an AI-generated flashcard
+    if (existingFlashcard.creation_type !== "llm") {
+      throw {
+        type: "CONFLICT_ERROR",
+        message: "Można recenzować tylko fiszki wygenerowane przez AI",
+        details: { creation_type: ["Fiszka nie została wygenerowana przez AI"] },
+        statusCode: 409,
+      };
+    }
+
+    // Validate status transitions for accept/reject actions
+    if (command.action === "accept" || command.action === "reject") {
+      if (existingFlashcard.status === "published" || existingFlashcard.status === "archived") {
+        throw {
+          type: "CONFLICT_ERROR",
+          message: "Fiszka została już zrecenzowana i ma status końcowy",
+          details: { status: ["Nie można ponownie recenzować fiszki o statusie końcowym"] },
+          statusCode: 409,
+        };
+      }
+    }
+
+    // Prepare update data based on action
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    switch (command.action) {
+      case "accept":
+        updateData.status = "published";
+        break;
+
+      case "reject":
+        updateData.status = "archived";
+        break;
+
+      case "edit":
+        if (command.front) updateData.front = command.front;
+        if (command.back) updateData.back = command.back;
+        if (command.status) updateData.status = command.status;
+        break;
+    }
+
+    // Update the flashcard in database
+    const { data: updatedFlashcard, error: updateError } = await this.supabase
+      .from("flashcards")
+      .update(updateData)
+      .eq("id", command.flashcardId)
+      .eq("user_id", command.userId)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas aktualizacji fiszki",
+        details: { database: [updateError.message] },
+        statusCode: 500,
+      };
+    }
+
+    if (!updatedFlashcard) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Nie udało się zaktualizować fiszki",
+        statusCode: 500,
+      };
+    }
+
+    // Return complete FlashcardDTO with existing categories and groups
+    return {
+      id: updatedFlashcard.id,
+      front: updatedFlashcard.front,
+      back: updatedFlashcard.back,
+      creation_type: updatedFlashcard.creation_type,
+      status: updatedFlashcard.status,
+      source_text_id: updatedFlashcard.source_text_id,
+      source_text: existingFlashcard.source_text,
+      categories: existingFlashcard.categories,
+      groups: existingFlashcard.groups,
+      created_at: updatedFlashcard.created_at,
+      updated_at: updatedFlashcard.updated_at,
+    };
+  }
+
+  // ============================================================================
+  // BULK OPERATIONS METHODS
+  // ============================================================================
+
+  /**
+   * Bulk delete multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs to delete
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkDeleteFlashcards(
+    flashcardIds: string[],
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[],
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: selectError } = await this.supabase
+      .from("flashcards")
+      .select("id")
+      .in("id", flashcardIds)
+      .eq("user_id", userId);
+
+    if (selectError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania fiszek",
+        details: { database: [selectError.message] },
+        statusCode: 500,
+      };
+    }
+
+    const existingIds = existingFlashcards?.map((f) => f.id) || [];
+    const missingIds = flashcardIds.filter((id) => !existingIds.includes(id));
+
+    if (missingIds.length > 0) {
+      results.failed_count += missingIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingIds.join(", ")}`);
+    }
+
+    // Delete existing flashcards in a transaction
+    if (existingIds.length > 0) {
+      const { error: deleteError } = await this.supabase
+        .from("flashcards")
+        .delete()
+        .in("id", existingIds)
+        .eq("user_id", userId);
+
+      if (deleteError) {
+        throw {
+          type: "DATABASE_ERROR",
+          message: "Błąd podczas usuwania fiszek",
+          details: { database: [deleteError.message] },
+          statusCode: 500,
+        };
+      }
+
+      results.processed_count = existingIds.length;
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk change status of multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs to update
+   * @param status - New status to apply
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkChangeStatus(
+    flashcardIds: string[],
+    status: FlashcardStatus,
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[],
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: selectError } = await this.supabase
+      .from("flashcards")
+      .select("id")
+      .in("id", flashcardIds)
+      .eq("user_id", userId);
+
+    if (selectError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania fiszek",
+        details: { database: [selectError.message] },
+        statusCode: 500,
+      };
+    }
+
+    const existingIds = existingFlashcards?.map((f) => f.id) || [];
+    const missingIds = flashcardIds.filter((id) => !existingIds.includes(id));
+
+    if (missingIds.length > 0) {
+      results.failed_count += missingIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingIds.join(", ")}`);
+    }
+
+    // Update existing flashcards status
+    if (existingIds.length > 0) {
+      const { error: updateError } = await this.supabase
+        .from("flashcards")
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", existingIds)
+        .eq("user_id", userId);
+
+      if (updateError) {
+        throw {
+          type: "DATABASE_ERROR",
+          message: "Błąd podczas zmiany statusu fiszek",
+          details: { database: [updateError.message] },
+          statusCode: 500,
+        };
+      }
+
+      results.processed_count = existingIds.length;
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk assign categories to multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs
+   * @param categoryIds - Array of category UUIDs to assign
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkAssignCategories(
+    flashcardIds: string[],
+    categoryIds: string[],
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[],
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: flashcardsError } = await this.supabase
+      .from("flashcards")
+      .select("id")
+      .in("id", flashcardIds)
+      .eq("user_id", userId);
+
+    if (flashcardsError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania fiszek",
+        details: { database: [flashcardsError.message] },
+        statusCode: 500,
+      };
+    }
+
+    const existingFlashcardIds = existingFlashcards?.map((f) => f.id) || [];
+    const missingFlashcardIds = flashcardIds.filter((id) => !existingFlashcardIds.includes(id));
+
+    if (missingFlashcardIds.length > 0) {
+      results.failed_count += missingFlashcardIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingFlashcardIds.join(", ")}`);
+    }
+
+    // Validate that all categories exist
+    const { data: existingCategories, error: categoriesError } = await this.supabase
+      .from("categories")
+      .select("id")
+      .in("id", categoryIds);
+
+    if (categoriesError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania kategorii",
+        details: { database: [categoriesError.message] },
+        statusCode: 500,
+      };
+    }
+
+    const existingCategoryIds = existingCategories?.map((c) => c.id) || [];
+    const missingCategoryIds = categoryIds.filter((id) => !existingCategoryIds.includes(id));
+
+    if (missingCategoryIds.length > 0) {
+      throw {
+        type: "NOT_FOUND_ERROR",
+        message: "Niektóre kategorie nie zostały znalezione",
+        details: { category_ids: [`Nie znaleziono kategorii: ${missingCategoryIds.join(", ")}`] },
+        statusCode: 404,
+      };
+    }
+
+    // Create flashcard-category relationships for existing flashcards
+    if (existingFlashcardIds.length > 0) {
+      // First, remove existing category relationships for these flashcards
+      await this.supabase.from("flashcard_categories").delete().in("flashcard_id", existingFlashcardIds);
+
+      // Create new relationships
+      const relationships = [];
+      for (const flashcardId of existingFlashcardIds) {
+        for (const categoryId of existingCategoryIds) {
+          relationships.push({
+            flashcard_id: flashcardId,
+            category_id: categoryId,
+          });
+        }
+      }
+
+      const { error: insertError } = await this.supabase.from("flashcard_categories").insert(relationships);
+
+      if (insertError) {
+        throw {
+          type: "DATABASE_ERROR",
+          message: "Błąd podczas przypisywania kategorii",
+          details: { database: [insertError.message] },
+          statusCode: 500,
+        };
+      }
+
+      results.processed_count = existingFlashcardIds.length;
+    }
+
+    return results;
+  }
+
+  /**
+   * Bulk assign groups to multiple flashcards
+   * @param flashcardIds - Array of flashcard UUIDs
+   * @param groupIds - Array of group UUIDs to assign
+   * @param userId - UUID of the authenticated user
+   * @returns Promise<{ processed_count: number, failed_count: number, errors: string[] }>
+   */
+  async bulkAssignGroups(
+    flashcardIds: string[],
+    groupIds: string[],
+    userId: string
+  ): Promise<{ processed_count: number; failed_count: number; errors: string[] }> {
+    const results = {
+      processed_count: 0,
+      failed_count: 0,
+      errors: [] as string[],
+    };
+
+    // Validate that all flashcards exist and belong to the user
+    const { data: existingFlashcards, error: flashcardsError } = await this.supabase
+      .from("flashcards")
+      .select("id")
+      .in("id", flashcardIds)
+      .eq("user_id", userId);
+
+    if (flashcardsError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania fiszek",
+        details: { database: [flashcardsError.message] },
+        statusCode: 500,
+      };
+    }
+
+    const existingFlashcardIds = existingFlashcards?.map((f) => f.id) || [];
+    const missingFlashcardIds = flashcardIds.filter((id) => !existingFlashcardIds.includes(id));
+
+    if (missingFlashcardIds.length > 0) {
+      results.failed_count += missingFlashcardIds.length;
+      results.errors.push(`Nie znaleziono fiszek: ${missingFlashcardIds.join(", ")}`);
+    }
+
+    // Validate that all groups exist
+    const { data: existingGroups, error: groupsError } = await this.supabase
+      .from("groups")
+      .select("id")
+      .in("id", groupIds);
+
+    if (groupsError) {
+      throw {
+        type: "DATABASE_ERROR",
+        message: "Błąd podczas sprawdzania grup",
+        details: { database: [groupsError.message] },
+        statusCode: 500,
+      };
+    }
+
+    const existingGroupIds = existingGroups?.map((g) => g.id) || [];
+    const missingGroupIds = groupIds.filter((id) => !existingGroupIds.includes(id));
+
+    if (missingGroupIds.length > 0) {
+      throw {
+        type: "NOT_FOUND_ERROR",
+        message: "Niektóre grupy nie zostały znalezione",
+        details: { group_ids: [`Nie znaleziono grup: ${missingGroupIds.join(", ")}`] },
+        statusCode: 404,
+      };
+    }
+
+    // Create flashcard-group relationships for existing flashcards
+    if (existingFlashcardIds.length > 0) {
+      // First, remove existing group relationships for these flashcards
+      await this.supabase.from("flashcard_groups").delete().in("flashcard_id", existingFlashcardIds);
+
+      // Create new relationships
+      const relationships = [];
+      for (const flashcardId of existingFlashcardIds) {
+        for (const groupId of existingGroupIds) {
+          relationships.push({
+            flashcard_id: flashcardId,
+            group_id: groupId,
+          });
+        }
+      }
+
+      const { error: insertError } = await this.supabase.from("flashcard_groups").insert(relationships);
+
+      if (insertError) {
+        throw {
+          type: "DATABASE_ERROR",
+          message: "Błąd podczas przypisywania grup",
+          details: { database: [insertError.message] },
+          statusCode: 500,
+        };
+      }
+
+      results.processed_count = existingFlashcardIds.length;
+    }
+
+    return results;
+  }
+}

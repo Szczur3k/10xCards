@@ -1,0 +1,259 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { AuthService } from "../lib/services/auth.service";
+
+const title = "Zaloguj się - 10xCards";
+
+// Server-side form handling
+if (Astro.request.method === "POST") {
+  try {
+    const formData = await Astro.request.formData();
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    if (!email || !password) {
+      return new Response("Brak wymaganych danych", { status: 400 });
+    }
+
+    // Create AuthService instance
+    const authService = new AuthService({
+      headers: Astro.request.headers,
+      cookies: Astro.cookies,
+    });
+
+    // Attempt signin
+    await authService.signin({ email, password });
+
+    // Get return URL
+    const returnUrl = new URL(Astro.request.url).searchParams.get("return") || "/flashcards";
+
+    // Redirect on success
+    return Astro.redirect(returnUrl);
+  } catch (error: unknown) {
+    console.error("Login error:", error);
+    // Error will be handled by client-side for better UX
+  }
+}
+
+// Get CSRF token for forms
+const csrfToken = Astro.locals.csrfToken;
+---
+
+<Layout title={title}>
+  <main class="min-h-screen flex items-center justify-center bg-background px-4">
+    <div class="w-full max-w-md">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+          <span class="text-2xl">🎯</span>
+        </div>
+        <h1 class="text-2xl font-bold">Zaloguj się do 10xCards</h1>
+        <p class="text-muted-foreground mt-2">Wprowadź swoje dane aby uzyskać dostęp do konta</p>
+      </div>
+
+      <!-- Login Form -->
+      <div class="bg-card border border-border rounded-lg shadow-sm p-6">
+        <!-- Error Message (hidden by default) -->
+        <div id="errorMessage" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div class="flex items-center">
+            <span class="text-red-600 mr-2">⚠</span>
+            <p id="errorText" class="text-sm text-red-800"></p>
+          </div>
+        </div>
+
+        <!-- Rate Limit Warning (hidden by default) -->
+        <div id="rateLimitWarning" class="hidden mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <div class="flex items-center">
+            <span class="text-yellow-600 mr-2">⏱</span>
+            <p class="text-sm text-yellow-800">
+              Pozostało <span id="attemptsRemaining">6</span> prób logowania
+            </p>
+          </div>
+        </div>
+
+        <form id="loginForm" method="POST" class="space-y-4">
+          <!-- CSRF Token -->
+          {csrfToken && <input type="hidden" name="csrf-token" value={csrfToken} />}
+
+          <!-- Email -->
+          <div class="space-y-2">
+            <label for="email" class="text-sm font-medium"> Adres email </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="twoj@email.com"
+            />
+          </div>
+
+          <!-- Password -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label for="password" class="text-sm font-medium"> Hasło </label>
+              <a href="/forgot-password" class="text-sm text-primary hover:underline"> Zapomniałeś hasła? </a>
+            </div>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Wprowadź hasło"
+            />
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            id="submitButton"
+            class="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span id="submitText">Zaloguj się</span>
+            <span id="loadingText" class="hidden">Logowanie...</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Footer -->
+      <div class="text-center mt-6">
+        <p class="text-sm text-muted-foreground">
+          Nie masz konta?
+          <a href="/signup" class="text-primary hover:underline font-medium"> Zarejestruj się </a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Import toast functionality
+    import { toast } from "sonner";
+
+    // Get CSRF token from meta or form
+    function getCSRFToken(): string | null {
+      const tokenInput = document.querySelector('input[name="csrf-token"]') as HTMLInputElement;
+      const metaToken = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
+      return tokenInput?.value || metaToken?.content || null;
+    }
+
+    // Enhanced login form handler with client-side improvements
+    document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(e.target as HTMLFormElement);
+      const email = formData.get("email") as string;
+      const password = formData.get("password") as string;
+      const csrfToken = getCSRFToken();
+
+      const submitButton = document.getElementById("submitButton") as HTMLButtonElement;
+      const submitText = document.getElementById("submitText");
+      const loadingText = document.getElementById("loadingText");
+      const errorMessage = document.getElementById("errorMessage");
+      const errorText = document.getElementById("errorText");
+
+      // Hide previous messages
+      errorMessage?.classList.add("hidden");
+
+      // Show loading state
+      submitButton.disabled = true;
+      submitText?.classList.add("hidden");
+      loadingText?.classList.remove("hidden");
+
+      try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+
+        // Add CSRF token to headers
+        if (csrfToken) {
+          headers["X-CSRF-Token"] = csrfToken;
+        }
+
+        const response = await fetch("/api/auth/signin", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ email, password }),
+        });
+
+        // Handle rate limiting
+        const remaining = response.headers.get("X-RateLimit-Remaining");
+        if (remaining) {
+          const attemptsLeft = parseInt(remaining);
+          if (attemptsLeft <= 3 && attemptsLeft > 0) {
+            const warningEl = document.getElementById("rateLimitWarning");
+            const remainingEl = document.getElementById("attemptsRemaining");
+            if (warningEl && remainingEl) {
+              remainingEl.textContent = attemptsLeft.toString();
+              warningEl.classList.remove("hidden");
+            }
+          }
+        }
+
+        if (response.ok) {
+          await response.json();
+
+          // Show success toast
+          toast.success("Zalogowano pomyślnie!");
+
+          // Redirect to flashcards or return URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const returnUrl = urlParams.get("return") || "/flashcards";
+
+          // Small delay for toast visibility
+          setTimeout(() => {
+            window.location.href = returnUrl;
+          }, 500);
+        } else {
+          const error = await response.json();
+
+          // Show error message
+          if (errorText) {
+            errorText.textContent = error.message || "Wystąpił błąd podczas logowania";
+          }
+          errorMessage?.classList.remove("hidden");
+
+          // Show error toast
+          toast.error(error.message || "Błąd logowania");
+        }
+      } catch (error) {
+        // Show network error
+        const networkError = "Sprawdź połączenie internetowe i spróbuj ponownie";
+        if (errorText) {
+          errorText.textContent = networkError;
+        }
+        errorMessage?.classList.remove("hidden");
+
+        toast.error(networkError);
+        console.error("Login error:", error);
+      } finally {
+        // Reset loading state
+        submitButton.disabled = false;
+        submitText?.classList.remove("hidden");
+        loadingText?.classList.add("hidden");
+      }
+    });
+
+    // Real-time email validation
+    document.getElementById("email")?.addEventListener("input", (e) => {
+      const email = (e.target as HTMLInputElement).value;
+      const submitButton = document.getElementById("submitButton") as HTMLButtonElement;
+
+      // Simple email validation
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const password = (document.getElementById("password") as HTMLInputElement)?.value;
+
+      submitButton.disabled = !(isValidEmail && password.length > 0);
+    });
+
+    // Real-time password validation
+    document.getElementById("password")?.addEventListener("input", (e) => {
+      const password = (e.target as HTMLInputElement).value;
+      const submitButton = document.getElementById("submitButton") as HTMLButtonElement;
+      const email = (document.getElementById("email") as HTMLInputElement)?.value;
+
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      submitButton.disabled = !(isValidEmail && password.length > 0);
+    });
+  </script>
+</Layout>

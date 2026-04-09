@@ -1,0 +1,392 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { AuthService } from "../lib/services/auth.service";
+
+const title = "Zarejestruj się - 10xCards";
+
+// Server-side form handling
+if (Astro.request.method === "POST") {
+  try {
+    const formData = await Astro.request.formData();
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (!email || !password || !confirmPassword) {
+      return new Response("Brak wymaganych danych", { status: 400 });
+    }
+
+    if (password !== confirmPassword) {
+      return new Response("Hasła nie są identyczne", { status: 400 });
+    }
+
+    // Create AuthService instance
+    const authService = new AuthService({
+      headers: Astro.request.headers,
+      cookies: Astro.cookies,
+    });
+
+    // Attempt signup
+    await authService.signup({ email, password });
+
+    // Redirect to flashcards on success
+    return Astro.redirect("/flashcards");
+  } catch (error: unknown) {
+    console.error("Signup error:", error);
+    // Error will be handled by client-side for better UX
+  }
+}
+
+// Get CSRF token for forms
+const csrfToken = Astro.locals.csrfToken;
+---
+
+<Layout title={title}>
+  <main class="min-h-screen flex items-center justify-center bg-background px-4">
+    <div class="w-full max-w-md">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+          <span class="text-2xl">🚀</span>
+        </div>
+        <h1 class="text-2xl font-bold">Dołącz do 10xCards</h1>
+        <p class="text-muted-foreground mt-2">Utwórz konto aby rozpocząć naukę z AI</p>
+      </div>
+
+      <!-- Signup Form -->
+      <div class="bg-card border border-border rounded-lg shadow-sm p-6">
+        <!-- Error Message (hidden by default) -->
+        <div id="errorMessage" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div class="flex items-center">
+            <span class="text-red-600 mr-2">⚠</span>
+            <p id="errorText" class="text-sm text-red-800"></p>
+          </div>
+        </div>
+
+        <!-- Success Message (hidden by default) -->
+        <div id="successMessage" class="hidden mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+          <div class="flex items-center">
+            <span class="text-green-600 mr-2">✅</span>
+            <p class="text-sm text-green-800">Konto utworzone pomyślnie! Przekierowywanie...</p>
+          </div>
+        </div>
+
+        <form id="signupForm" method="POST" class="space-y-4">
+          <!-- CSRF Token -->
+          {csrfToken && <input type="hidden" name="csrf-token" value={csrfToken} />}
+
+          <!-- Email -->
+          <div class="space-y-2">
+            <label for="email" class="text-sm font-medium"> Adres email </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="twoj@email.com"
+            />
+            <div id="emailError" class="hidden text-xs text-red-600"></div>
+          </div>
+
+          <!-- Password -->
+          <div class="space-y-2">
+            <label for="password" class="text-sm font-medium"> Hasło </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Minimum 8 znaków"
+            />
+
+            <!-- Password Strength Indicator -->
+            <div id="passwordStrength" class="hidden">
+              <div class="flex items-center space-x-2 text-xs">
+                <div class="flex-1 bg-gray-200 rounded-full h-1">
+                  <div id="strengthBar" class="h-1 rounded-full transition-all duration-300"></div>
+                </div>
+                <span id="strengthText" class="text-xs font-medium"></span>
+              </div>
+
+              <!-- Password Requirements -->
+              <div class="mt-2 space-y-1">
+                <div id="req-length" class="flex items-center text-xs">
+                  <span class="w-4 h-4 mr-2">⭕</span>
+                  <span>Minimum 8 znaków</span>
+                </div>
+                <div id="req-lower" class="flex items-center text-xs">
+                  <span class="w-4 h-4 mr-2">⭕</span>
+                  <span>Mała litera (a-z)</span>
+                </div>
+                <div id="req-upper" class="flex items-center text-xs">
+                  <span class="w-4 h-4 mr-2">⭕</span>
+                  <span>Wielka litera (A-Z)</span>
+                </div>
+                <div id="req-number" class="flex items-center text-xs">
+                  <span class="w-4 h-4 mr-2">⭕</span>
+                  <span>Cyfra (0-9)</span>
+                </div>
+                <div id="req-special" class="flex items-center text-xs">
+                  <span class="w-4 h-4 mr-2">⭕</span>
+                  <span>Znak specjalny (@$!%*?&.,/)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="space-y-2">
+            <label for="confirmPassword" class="text-sm font-medium"> Potwierdź hasło </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              required
+              class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Powtórz hasło"
+            />
+            <div id="confirmError" class="hidden text-xs text-red-600">Hasła nie są identyczne</div>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            id="submitButton"
+            disabled
+            class="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span id="submitText">Utwórz konto</span>
+            <span id="loadingText" class="hidden">Tworzenie konta...</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Footer -->
+      <div class="text-center mt-6">
+        <p class="text-sm text-muted-foreground">
+          Masz już konto?
+          <a href="/login" class="text-primary hover:underline font-medium"> Zaloguj się </a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Import toast functionality
+    import { toast } from "sonner";
+
+    // Password strength validation
+    interface PasswordRequirements {
+      length: boolean;
+      lower: boolean;
+      upper: boolean;
+      number: boolean;
+      special: boolean;
+    }
+
+    function checkPasswordStrength(password: string): { score: number; requirements: PasswordRequirements } {
+      const requirements: PasswordRequirements = {
+        length: password.length >= 8,
+        lower: /[a-z]/.test(password),
+        upper: /[A-Z]/.test(password),
+        number: /\d/.test(password),
+        special: /[@$!%*?&.,/]/.test(password),
+      };
+
+      const score = Object.values(requirements).filter(Boolean).length;
+      return { score, requirements };
+    }
+
+    function updatePasswordStrength(password: string) {
+      const { score, requirements } = checkPasswordStrength(password);
+      const strengthIndicator = document.getElementById("passwordStrength");
+      const strengthBar = document.getElementById("strengthBar");
+      const strengthText = document.getElementById("strengthText");
+
+      if (!strengthIndicator || !strengthBar || !strengthText) return;
+
+      // Show/hide strength indicator
+      if (password.length > 0) {
+        strengthIndicator.classList.remove("hidden");
+      } else {
+        strengthIndicator.classList.add("hidden");
+        return;
+      }
+
+      // Update strength bar
+      const percentage = (score / 5) * 100;
+      strengthBar.style.width = `${percentage}%`;
+
+      // Update colors and text based on strength
+      if (score <= 2) {
+        strengthBar.className = "h-1 rounded-full transition-all duration-300 bg-red-500";
+        strengthText.textContent = "Słabe";
+        strengthText.className = "text-xs font-medium text-red-600";
+      } else if (score <= 3) {
+        strengthBar.className = "h-1 rounded-full transition-all duration-300 bg-yellow-500";
+        strengthText.textContent = "Średnie";
+        strengthText.className = "text-xs font-medium text-yellow-600";
+      } else if (score <= 4) {
+        strengthBar.className = "h-1 rounded-full transition-all duration-300 bg-blue-500";
+        strengthText.textContent = "Dobre";
+        strengthText.className = "text-xs font-medium text-blue-600";
+      } else {
+        strengthBar.className = "h-1 rounded-full transition-all duration-300 bg-green-500";
+        strengthText.textContent = "Bardzo dobre";
+        strengthText.className = "text-xs font-medium text-green-600";
+      }
+
+      // Update requirement indicators
+      Object.entries(requirements).forEach(([key, met]) => {
+        const element = document.getElementById(`req-${key}`);
+        if (element) {
+          const icon = element.querySelector("span");
+          if (icon) {
+            icon.textContent = met ? "✅" : "⭕";
+          }
+          element.className = met
+            ? "flex items-center text-xs text-green-600"
+            : "flex items-center text-xs text-gray-500";
+        }
+      });
+
+      return score === 5;
+    }
+
+    function validateForm(): boolean {
+      const email = (document.getElementById("email") as HTMLInputElement)?.value;
+      const password = (document.getElementById("password") as HTMLInputElement)?.value;
+      const confirmPassword = (document.getElementById("confirmPassword") as HTMLInputElement)?.value;
+
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const isStrongPassword = checkPasswordStrength(password).score === 5;
+      const passwordsMatch = password === confirmPassword && password.length > 0;
+
+      const submitButton = document.getElementById("submitButton") as HTMLButtonElement;
+      submitButton.disabled = !(isValidEmail && isStrongPassword && passwordsMatch);
+
+      return isValidEmail && isStrongPassword && passwordsMatch;
+    }
+
+    // Get CSRF token from form
+    function getCSRFToken(): string | null {
+      const tokenInput = document.querySelector('input[name="csrf-token"]') as HTMLInputElement;
+      return tokenInput?.value || null;
+    }
+
+    // Event listeners
+    document.getElementById("password")?.addEventListener("input", (e) => {
+      const password = (e.target as HTMLInputElement).value;
+      updatePasswordStrength(password);
+      validateForm();
+    });
+
+    document.getElementById("confirmPassword")?.addEventListener("input", (e) => {
+      const confirmPassword = (e.target as HTMLInputElement).value;
+      const password = (document.getElementById("password") as HTMLInputElement)?.value;
+      const confirmError = document.getElementById("confirmError");
+
+      if (confirmPassword.length > 0 && password !== confirmPassword) {
+        confirmError?.classList.remove("hidden");
+      } else {
+        confirmError?.classList.add("hidden");
+      }
+
+      validateForm();
+    });
+
+    document.getElementById("email")?.addEventListener("input", () => {
+      validateForm();
+    });
+
+    // Form submission
+    document.getElementById("signupForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!validateForm()) {
+        toast.error("Wypełnij wszystkie pola poprawnie");
+        return;
+      }
+
+      const formData = new FormData(e.target as HTMLFormElement);
+      const email = formData.get("email") as string;
+      const password = formData.get("password") as string;
+      const confirmPassword = formData.get("confirmPassword") as string;
+      const csrfToken = getCSRFToken();
+
+      const submitButton = document.getElementById("submitButton") as HTMLButtonElement;
+      const submitText = document.getElementById("submitText");
+      const loadingText = document.getElementById("loadingText");
+      const errorMessage = document.getElementById("errorMessage");
+      const errorText = document.getElementById("errorText");
+      const successMessage = document.getElementById("successMessage");
+
+      // Hide previous messages
+      errorMessage?.classList.add("hidden");
+      successMessage?.classList.add("hidden");
+
+      // Show loading state
+      submitButton.disabled = true;
+      submitText?.classList.add("hidden");
+      loadingText?.classList.remove("hidden");
+
+      try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+
+        if (csrfToken) {
+          headers["X-CSRF-Token"] = csrfToken;
+        }
+
+        const response = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ email, password, confirmPassword }),
+        });
+
+        if (response.ok) {
+          await response.json();
+
+          // Show success message
+          successMessage?.classList.remove("hidden");
+          toast.success("Konto utworzone pomyślnie!");
+
+          // Redirect to flashcards
+          setTimeout(() => {
+            window.location.href = "/flashcards";
+          }, 1500);
+        } else {
+          const error = await response.json();
+
+          // Show error message
+          if (errorText) {
+            errorText.textContent = error.message || "Wystąpił błąd podczas rejestracji";
+          }
+          errorMessage?.classList.remove("hidden");
+
+          toast.error(error.message || "Błąd rejestracji");
+        }
+      } catch (error) {
+        const networkError = "Sprawdź połączenie internetowe i spróbuj ponownie";
+        if (errorText) {
+          errorText.textContent = networkError;
+        }
+        errorMessage?.classList.remove("hidden");
+
+        toast.error(networkError);
+        console.error("Signup error:", error);
+      } finally {
+        // Reset loading state
+        submitButton.disabled = false;
+        submitText?.classList.remove("hidden");
+        loadingText?.classList.add("hidden");
+
+        // Re-validate form
+        validateForm();
+      }
+    });
+  </script>
+</Layout>
