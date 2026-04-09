@@ -71,9 +71,11 @@ docker compose up -d --build
 
 ### Postgres: migracje i ponowny start
 
-Obraz Postgres **ignoruje** podkatalog `migrations/` w `docker-entrypoint-initdb.d` — w repo jest `docker/postgres/01-run-migrations.sh`, który uruchamia pliki z `supabase/migrations/` (sort `V`), potem `09-seed.sql`.
+**`uuid-ossp` w initdb** w obrazie `supabase/postgres` potrafi wymagać roli `supabase_admin` (kolejność skryptów). W migracjach jest **`gen_random_uuid()`** (rdzeń PG 17, bez rozszerzenia).
 
-Jeśli `fiszki-postgres` padł przy pierwszym init (np. błąd seed), **usuń volume** z danymi (`docker compose down`, potem `docker volume rm <nazwa>_supabase_db` — nazwę zobaczysz w `docker volume ls`) i odpal ponownie. Initdb wykonuje się tylko przy **pustym** volume.
+**Kolejność Docker:** `fiszki-postgres` → `fiszki-auth` (GoTrue tworzy `auth.users`) → **`fiszki-migrate`** (jednorazowy kontener: czeka na `auth.users`, odpala `supabase/migrations/*.sql`, potem `seed-simple.sql`) → `fiszki-rest` startuje dopiero po **sukcesie** migrate.
+
+Jeśli coś się wysypało przy pierwszym init, **usuń volume** (`docker compose down`, `docker volume rm <nazwa>_supabase_db`) i `docker compose up -d --build` od zera. Przy kolejnych `up` migrate widzi `public.users` i **pomija** SQL (idempotentnie).
 
 **GoTrue / PostgREST / Postgres:** `GOTRUE_DB_DATABASE_URL` i `PGRST_DB_URI` biorą hasło z **`POSTGRES_PASSWORD`** — musi być **identyczne** z tym, z jakim został utworzony katalog danych w volume. Jeśli widzisz `password authentication failed for user "postgres"`, zwykle: (1) kiedyś init poszedł z innym `.env` niż teraz, (2) pusta linia `POSTGRES_PASSWORD=` w `.env`, (3) `@` w haśle psuje URI bez kodowania. Naprawa: `docker compose down`, `docker volume rm <projekt>_supabase_db`, w `.env` ustaw jedno stałe hasło (np. `postgres`), `docker compose up -d`.
 

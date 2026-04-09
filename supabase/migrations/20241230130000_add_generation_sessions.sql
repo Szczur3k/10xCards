@@ -9,7 +9,7 @@
 -- ==========================================
 
 create table public.generation_sessions (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   source_text_id uuid references public.source_texts(id) on delete cascade,
   status varchar(20) not null default 'generating' check (status in ('generating', 'completed', 'error')),

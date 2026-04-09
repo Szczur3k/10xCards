@@ -5,8 +5,8 @@
 -- Affected: Creates all core tables, types, indexes, and RLS policies
 -- Date: 2024-12-04
 
--- enable necessary extensions
-create extension if not exists "uuid-ossp";
+-- uuid-ossp odpoczynek: w obrazie supabase/postgres CREATE EXTENSION uuid-ossp
+-- w init oczekuje roli supabase_admin (kolejność initdb). gen_random_uuid() jest w rdzeniu PG 13+.
 
 -- ==========================================
 -- custom types
@@ -32,7 +32,7 @@ create table public.users (
 
 -- source texts for llm-generated flashcards
 create table public.source_texts (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   content text not null check (length(content) between 1000 and 10000),
   created_at timestamptz default current_timestamp
@@ -40,7 +40,7 @@ create table public.source_texts (
 
 -- main flashcards table
 create table public.flashcards (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   source_text_id uuid references public.source_texts(id),
   front varchar(200) not null check (length(front) <= 200),
@@ -53,7 +53,7 @@ create table public.flashcards (
 
 -- categories for organizing flashcards
 create table public.categories (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name varchar(100) not null,
   description text,
   created_at timestamptz default current_timestamp
@@ -61,7 +61,7 @@ create table public.categories (
 
 -- groups for organizing flashcards
 create table public.groups (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name varchar(100) not null,
   description text,
   created_at timestamptz default current_timestamp
@@ -69,7 +69,7 @@ create table public.groups (
 
 -- flashcard performance and generation statistics
 create table public.flashcard_stats (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   flashcard_id uuid not null references public.flashcards(id) on delete cascade,
   generation_time_ms integer not null check (generation_time_ms >= 0),
   token_count integer not null check (token_count >= 0),
