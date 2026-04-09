@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import type { ErrorResponseDTO } from "../../../types";
+import { isMockAuth } from "../../../lib/auth-mock";
 import { AuthService } from "../../../lib/services/auth.service";
 
 export const prerender = false;
@@ -9,6 +10,13 @@ export const prerender = false;
  * Sign out current user
  */
 export const POST: APIRoute = async ({ request, cookies }) => {
+  if (isMockAuth()) {
+    return new Response(JSON.stringify({ success: true, mock: true, message: "Wylogowano (mock)" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     // Create AuthService instance
     const authService = new AuthService({ headers: request.headers, cookies });

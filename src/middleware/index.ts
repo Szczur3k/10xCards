@@ -1,5 +1,6 @@
 import { defineMiddleware } from "astro:middleware";
 import { createSupabaseServerClient } from "../db/supabase.client";
+import { getMockUserEmail, getMockUserId, isMockAuth } from "../lib/auth-mock";
 import { getCSRFToken, setCSRFToken } from "../lib/middleware/csrf";
 
 // Protected routes that require authentication
@@ -28,28 +29,37 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Add Supabase client to context
   context.locals.supabase = supabase;
 
-  // Get current user session
   let isAuthenticated = false;
   let user = null;
 
-  try {
-    const {
-      data: { user: supabaseUser },
-      error,
-    } = await supabase.auth.getUser();
+  if (isMockAuth()) {
+    isAuthenticated = true;
+    const id = getMockUserId();
+    user = {
+      id,
+      email: getMockUserEmail(),
+      role: "user",
+      created_at: new Date().toISOString(),
+    };
+  } else {
+    try {
+      const {
+        data: { user: supabaseUser },
+        error,
+      } = await supabase.auth.getUser();
 
-    if (supabaseUser && !error) {
-      isAuthenticated = true;
-      user = {
-        id: supabaseUser.id,
-        email: supabaseUser.email || "",
-        role: "user", // Default role
-        created_at: supabaseUser.created_at,
-      };
+      if (supabaseUser && !error) {
+        isAuthenticated = true;
+        user = {
+          id: supabaseUser.id,
+          email: supabaseUser.email || "",
+          role: "user",
+          created_at: supabaseUser.created_at,
+        };
+      }
+    } catch (error) {
+      console.error("Auth middleware error:", error);
     }
-  } catch (error) {
-    console.error("Auth middleware error:", error);
-    // Continue with unauthenticated state
   }
 
   // Add auth state to context

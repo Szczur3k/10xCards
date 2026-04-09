@@ -12,7 +12,7 @@ BEGIN
             confirmed_at, created_at, updated_at,
             raw_app_meta_data, raw_user_meta_data
         ) VALUES (
-            gen_random_uuid(),
+            '00000000-0000-4000-8000-000000000001',
             '00000000-0000-0000-0000-000000000000',
             'authenticated',
             'authenticated',
@@ -33,7 +33,7 @@ BEGIN
             confirmed_at, created_at, updated_at,
             raw_app_meta_data, raw_user_meta_data
         ) VALUES (
-            gen_random_uuid(),
+            '00000000-0000-4000-8000-000000000002',
             '00000000-0000-0000-0000-000000000000',
             'authenticated',
             'authenticated',

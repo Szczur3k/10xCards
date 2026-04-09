@@ -19,6 +19,8 @@ export default defineConfig({
       "import.meta.env.SUPABASE_URL": JSON.stringify(process.env.SUPABASE_URL),
       "import.meta.env.SUPABASE_KEY": JSON.stringify(process.env.SUPABASE_KEY),
       "import.meta.env.MOCK_AUTH": JSON.stringify(process.env.MOCK_AUTH),
+      "import.meta.env.MOCK_USER_ID": JSON.stringify(process.env.MOCK_USER_ID),
+      "import.meta.env.MOCK_USER_EMAIL": JSON.stringify(process.env.MOCK_USER_EMAIL),
       // Client-side PUBLIC_ versions
       "import.meta.env.PUBLIC_SUPABASE_URL": JSON.stringify(process.env.SUPABASE_URL),
       "import.meta.env.PUBLIC_SUPABASE_KEY": JSON.stringify(process.env.SUPABASE_KEY),

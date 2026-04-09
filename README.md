@@ -16,38 +16,35 @@ Aplikacja webowa do tworzenia fiszek edukacyjnych: generowanie przez LLM z tekst
 | Testy          | Vitest + RTL; Playwright (E2E)                                               |
 
 
-Zmienne serwerowe są podpinane w `astro.config.mjs` (`SUPABASE_`*, `MOCK_AUTH`, `OPENROUTER_API_KEY`).
+Zmienne serwerowe są podpinane w `astro.config.mjs` (`SUPABASE_*`, `MOCK_AUTH`, `MOCK_USER_*`, `OPENROUTER_API_KEY`).
 
 ## Supabase — czego potrzebujesz (logicznie)
 
-Klient Supabase w kodzie oczekuje **jednego** `SUPABASE_URL` w stylu chmury: ten sam host obsługuje ścieżki `/auth/v1/*` (GoTrue) i `/rest/v1/*` (PostgREST). Stąd:
-
+W **Supabase Cloud** jeden host ma `/auth/v1/*` (Auth) i `/rest/v1/*` (PostgREST). W **lokalnym `docker-compose` w tym repo** jest **tylko PostgREST** pod `/rest/v1/` (bez GoTrue); logowanie na dev to **`MOCK_AUTH=true`** (middleware + API auth zwracają sukces bez wywołań Auth API). Schemat `auth` i tabela `auth.users` są tworzone migracją `20240101000000_bootstrap_auth_and_roles.sql` przy **initdb** Postgresa.
 
 | Komponent                       | Rola w tej aplikacji                                                                               |
 | ------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **PostgreSQL**                  | Dane (`public.*`), migracje w `supabase/migrations/`, RLS na rolach `anon` / `authenticated`       |
-| **GoTrue**                      | Rejestracja, logowanie, JWT; polityki w SQL odwołują się do `auth.users`                           |
-| **PostgREST**                   | REST nad tabelami — to realizuje wywołania `supabase.from(...)`                                    |
-| **Brama (nginx w compose)**     | **Tylko sieć Docker** — scala `/auth/v1` → GoTrue i `/rest/v1` → PostgREST pod jednym hostem wewnętrznym (`fiszki-gateway:8000`). To nie jest „publiczne API”; Cloudflare/NPM dotyczy wyłącznie **aplikacji** (port `fiszki-web`). |
-| **Studio / Realtime / Storage** | W tym MVP **nie** są w compose; lokalny dev przez `supabase start` może je włączyć (`config.toml`) |
-
+| **PostgreSQL**                  | Dane (`public.*`), migracje w `supabase/migrations/`, RLS; seed w `seed-simple.sql` po migracjach |
+| **PostgREST**                   | REST — `supabase.from(...)`                                                                        |
+| **Brama (nginx w compose)**     | Tylko sieć Docker: `/rest/v1/` → PostgREST (`fiszki-gateway:8000`).                                |
+| **Studio / Realtime / Storage** | Nie są w compose; opcjonalnie `npx supabase start`                                                 |
 
 **Opcje produkcyjne:**
 
-1. **Supabase Cloud** — najmniej operacji: hostujesz tylko obraz aplikacji, w `.env` dajesz URL projektu i klucz `anon` z dashboardu.
-2. **Self-hosted (Docker)** — ten repo ma `docker-compose.yml`: Postgres + GoTrue + PostgREST + nginx. Pełny zestaw jak w chmurze (Realtime, Storage, Studio) to osobny temat — oficjalny szablon: [Self-Hosted Supabase](https://supabase.com/docs/guides/self-hosting/docker).
+1. **Supabase Cloud** — URL projektu + klucz `anon` z dashboardu; wyłącz `MOCK_AUTH`.
+2. **Self-hosted pełny stack** (Auth + Realtime itd.) — szablon [Self-Hosted Supabase](https://supabase.com/docs/guides/self-hosting/docker); ten compose jest **uproszczony** pod lokalny dev.
 
-**`SUPABASE_URL` w tym projekcie:** używany jest wyłącznie **serwerowo** (`createSupabaseServerClient` w middleware / API). Nie ma wywołań Supabase z Reacta w przeglądarce, więc **domyślnie w Dockerze** wystarcza `http://fiszki-gateway:8000` — bez domeny i bez wystawiania API na zewnątrz.
+**`SUPABASE_URL`:** serwerowo (`createSupabaseServerClient`). W Dockerze: `http://fiszki-gateway:8000`.
 
-**`SUPABASE_KEY`:** anon JWT zgodny z `JWT_SECRET` (GoTrue + PostgREST).
+**`SUPABASE_KEY` (lokalny Docker + mock):** JWT z rolą **`service_role`** i tym samym sekretem co `PGRST_JWT_SECRET` / `JWT_SECRET` (PostgREST omija RLS). **Tylko dev** — nie commituj prawdziwych sekretów. W chmurze użyj klucza `anon` z panelu.
 
-**Uwaga na przyszłość:** jeśli dodasz klienta Supabase w przeglądarce, wtedy przeglądarka musiałaby widzieć ten sam host co `SUPABASE_URL` (proxy pod domeną apki albo osobny publiczny endpoint).
+**Uwaga:** przy kliencie Supabase w przeglądarce ten sam host musi być osiągalny z przeglądarki (proxy / publiczny URL).
 
 ## Docker na Linux VM
 
 ### Nazewnictwo kontenerów
 
-Wzorzec: `fiszki-<serwis>` — `fiszki-web`, `fiszki-postgres`, `fiszki-auth`, `fiszki-rest`, `fiszki-gateway`.
+Wzorzec: `fiszki-<serwis>` — `fiszki-web`, `fiszki-postgres`, `fiszki-rest`, `fiszki-gateway`.
 
 ### Porty na hoście (bez kolizji z typowym homelabem)
 
@@ -59,7 +56,7 @@ Wzorzec: `fiszki-<serwis>` — `fiszki-web`, `fiszki-postgres`, `fiszki-auth`, `
 
 Nadpisanie: `HOST_APP_PORT`, `HOST_POSTGRES_PORT` w `.env`.
 
-Obraz DB: `supabase/postgres:17.6.1.106` (PostgreSQL 17 w obrazie Supabase). `supabase/config.toml` → `major_version = 17`.
+Obraz DB: `postgres:17-alpine`. Migracje i seed lecą przy **pierwszym** utworzeniu volume (`docker-entrypoint-initdb.d`).
 
 ### Uruchomienie
 
@@ -71,13 +68,11 @@ docker compose up -d --build
 
 ### Postgres: migracje i ponowny start
 
-**`uuid-ossp` w initdb** w obrazie `supabase/postgres` potrafi wymagać roli `supabase_admin` (kolejność skryptów). W migracjach jest **`gen_random_uuid()`** (rdzeń PG 17, bez rozszerzenia).
+Przy **pierwszym** starcie pustego volume: skrypt `docker/postgres/docker-init-migrations.sh` odpala `supabase/migrations/*.sql` (sort wersji), potem `seed-simple.sql`.
 
-**Kolejność Docker:** `fiszki-postgres` → `fiszki-auth` (GoTrue tworzy `auth.users`) → **`fiszki-migrate`** (jednorazowy kontener: czeka na `auth.users`, odpala `supabase/migrations/*.sql`, potem `seed-simple.sql`) → `fiszki-rest` startuje dopiero po **sukcesie** migrate.
+Jeśli init się wysypał albo zmieniłeś kolejność migracji: `docker compose down`, `docker volume rm <projekt>_supabase_db`, popraw `.env`, `docker compose up -d --build`.
 
-Jeśli coś się wysypało przy pierwszym init, **usuń volume** (`docker compose down`, `docker volume rm <nazwa>_supabase_db`) i `docker compose up -d --build` od zera. Przy kolejnych `up` migrate widzi `public.users` i **pomija** SQL (idempotentnie).
-
-**GoTrue / PostgREST / Postgres:** `GOTRUE_DB_DATABASE_URL` i `PGRST_DB_URI` biorą hasło z **`POSTGRES_PASSWORD`** — musi być **identyczne** z tym, z jakim został utworzony katalog danych w volume. Jeśli widzisz `password authentication failed for user "postgres"`, zwykle: (1) kiedyś init poszedł z innym `.env` niż teraz, (2) pusta linia `POSTGRES_PASSWORD=` w `.env`, (3) `@` w haśle psuje URI bez kodowania. Naprawa: `docker compose down`, `docker volume rm <projekt>_supabase_db`, w `.env` ustaw jedno stałe hasło (np. `postgres`), `docker compose up -d`.
+**PostgREST / Postgres:** `PGRST_DB_URI` używa **`POSTGRES_PASSWORD`** — musi być zgodne z hasłem, z którym powstał volume. Typowy błąd: zmiana hasła w `.env` bez usunięcia volume → `password authentication failed`.
 
 ### Cloudflare Tunnel (Zero Trust)
 
@@ -91,7 +86,7 @@ Jeśli coś się wysypało przy pierwszym init, **usuń volume** (`docker compos
    ```
    (jeśli kontener NPM nazywa się inaczej — podmień nazwę).
 
-2. **Dwa proxy hosty** (subdomena pod API jest konieczna — jeden `SUPABASE_URL` dla JS):
+2. **Dwa proxy hosty** (jeśli aplikacja i PostgREST mają być pod HTTPS z zewnątrz):
 
    | Domena (przykład) | Forward |
    |-------------------|---------|
@@ -103,12 +98,11 @@ Jeśli coś się wysypało przy pierwszym init, **usuń volume** (`docker compos
 3. **`.env` na VM**
 
    - `SUPABASE_URL=https://fiszki-api.szczur3k-home.loan` (bez `/` na końcu)
-   - `SITE_URL=https://fiszki.szczur3k-home.loan`
-   - `URI_ALLOW_LIST=https://fiszki.szczur3k-home.loan`
+   - `MOCK_AUTH=false` jeśli używasz prawdziwego Auth (np. Supabase Cloud); przy samym PostgREST bez Auth API ustaw zgodnie z wdrożeniem
 
 Cookie auth w produkcji wymaga **HTTPS** (`secure` w `src/db/supabase.client.ts`).
 
-**Dlaczego jest `fiszki-gateway` skoro masz NPM?** NPM tylko **terminuje TLS** i przekazuje ruch do jednego upstreamu. Klient `@supabase/supabase-js` i tak potrzebuje **jednego** hosta z ścieżkami `/auth/v1` i `/rest/v1`. Wewnętrzny nginx w compose robi to samo co Kong w chmurze — to nie drugi „publiczny” serwer WWW obok NPM.
+**Dlaczego jest `fiszki-gateway` skoro masz NPM?** NPM terminuje TLS; gateway w compose agreguje PostgREST pod `/rest/v1/` (w chmurze Supabase robi podobnie z wieloma ścieżkami).
 
 ### Uwaga do Dockerfile
 
@@ -127,9 +121,9 @@ Domyślnie dev server na porcie **3000** (`astro.config.mjs`). Pełny stack Supa
 
 Skopiuj `.env.example` → `.env`. Minimalnie:
 
-- `SUPABASE_URL`, `SUPABASE_KEY`
+- `SUPABASE_URL`, `SUPABASE_KEY` (lokalnie: JWT `service_role` + `JWT_SECRET` jak w przykładzie)
 - `OPENROUTER_API_KEY` (generowanie fiszek)
-- przy Dockerze: `SITE_URL`, `URI_ALLOW_LIST` zgodne z adresem, pod którym wchodzisz do aplikacji
+- `MOCK_AUTH=true` na lokalny stack bez prawdziwego Auth API
 
 ## Skrypty npm
 

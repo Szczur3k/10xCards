@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import type { ErrorResponseDTO } from "../../../types";
+import { isMockAuth } from "../../../lib/auth-mock";
 import { AuthService } from "../../../lib/services/auth.service";
 import { validateSignupRequest } from "../../../lib/validation/auth.schemas";
 // import { RateLimiter, rateLimitConfigs, createRateLimitError } from '../../../lib/middleware/rate-limit';
@@ -12,7 +13,12 @@ export const prerender = false;
  * Register new user with rate limiting and CSRF protection
  */
 export const POST: APIRoute = async ({ request, cookies }) => {
-  // const rateLimiter = new RateLimiter({ headers: request.headers, cookies });
+  if (isMockAuth()) {
+    return new Response(JSON.stringify({ success: true, mock: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   try {
     // Rate limiting check - DISABLED FOR TESTING
