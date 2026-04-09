@@ -3,6 +3,8 @@ services:
     container_name: fiszki-postgres
     image: supabase/postgres:17.6.1.106
     environment:
+      # Hasło ustawiane tylko przy pierwszym utworzeniu volume — zmiana w .env bez rm volume = rozjazd z GoTrue/PostgREST
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: postgres
     ports:

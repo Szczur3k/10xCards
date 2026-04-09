@@ -75,7 +75,7 @@ Obraz Postgres **ignoruje** podkatalog `migrations/` w `docker-entrypoint-initdb
 
 Jeśli `fiszki-postgres` padł przy pierwszym init (np. błąd seed), **usuń volume** z danymi (`docker compose down`, potem `docker volume rm <nazwa>_supabase_db` — nazwę zobaczysz w `docker volume ls`) i odpal ponownie. Initdb wykonuje się tylko przy **pustym** volume.
 
-**GoTrue / PostgREST:** w `docker-compose` jest `GOTRUE_API_EXTERNAL_URL` (wymagane w GoTrue v2). Jeśli PostgREST zgłasza `password authentication failed for user postgres`, sprawdź `.env`: pusta lub zmieniona w połowie `POSTGRES_PASSWORD` musi być **taka sama** jak przy utworzeniu volume (albo usuń volume i zainicjuj od zera).
+**GoTrue / PostgREST / Postgres:** `GOTRUE_DB_DATABASE_URL` i `PGRST_DB_URI` biorą hasło z **`POSTGRES_PASSWORD`** — musi być **identyczne** z tym, z jakim został utworzony katalog danych w volume. Jeśli widzisz `password authentication failed for user "postgres"`, zwykle: (1) kiedyś init poszedł z innym `.env` niż teraz, (2) pusta linia `POSTGRES_PASSWORD=` w `.env`, (3) `@` w haśle psuje URI bez kodowania. Naprawa: `docker compose down`, `docker volume rm <projekt>_supabase_db`, w `.env` ustaw jedno stałe hasło (np. `postgres`), `docker compose up -d`.
 
 ### Cloudflare Tunnel (Zero Trust)
 
