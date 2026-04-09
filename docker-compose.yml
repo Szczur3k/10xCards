@@ -59,6 +59,8 @@ services:
       - "${HOST_APP_PORT:-3001}:3001"
     environment:
       NODE_ENV: production
+      # Bez tego Astro nasłuchuje na 127.0.0.1 — host/Tunnel/nginx nie trafiają (502).
+      HOST: ${HOST:-0.0.0.0}
       PORT: 3001
       SUPABASE_URL: ${SUPABASE_URL:-http://fiszki-gateway:8000}
       SUPABASE_KEY: ${SUPABASE_KEY}
