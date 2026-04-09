@@ -75,6 +75,12 @@ Obraz Postgres **ignoruje** podkatalog `migrations/` w `docker-entrypoint-initdb
 
 Jeśli `fiszki-postgres` padł przy pierwszym init (np. błąd seed), **usuń volume** z danymi (`docker compose down`, potem `docker volume rm <nazwa>_supabase_db` — nazwę zobaczysz w `docker volume ls`) i odpal ponownie. Initdb wykonuje się tylko przy **pustym** volume.
 
+**GoTrue / PostgREST:** w `docker-compose` jest `GOTRUE_API_EXTERNAL_URL` (wymagane w GoTrue v2). Jeśli PostgREST zgłasza `password authentication failed for user postgres`, sprawdź `.env`: pusta lub zmieniona w połowie `POSTGRES_PASSWORD` musi być **taka sama** jak przy utworzeniu volume (albo usuń volume i zainicjuj od zera).
+
+### Cloudflare Tunnel (Zero Trust)
+
+`cloudflared` na hoście **nie widzi** nazw typu `fiszki-web` (to tylko sieć Docker). Jako **Service** daj `http://127.0.0.1:3001` albo `http://<IP_VM>:3001` — port z `HOST_APP_PORT`. Nie używaj `http://fiszki-web:3001` (502).
+
 ### Nginx Proxy Manager (masz już NPM na VM)
 
 1. **Sieć Docker** — kontener NPM musi widzieć `fiszki-gateway` i `fiszki-web` po nazwie. Po starcie stacku:

@@ -26,6 +26,8 @@ services:
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
+      # Wymagane od GoTrue v2 (publiczny adres API auth — u nas wewnętrzny gateway)
+      GOTRUE_API_EXTERNAL_URL: ${GOTRUE_API_EXTERNAL_URL:-http://fiszki-gateway:8000}
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@fiszki-postgres:5432/postgres
       # Redirecty / allow list — ustaw na adres, pod którym faktycznie wchodzisz do apki (IP:port, tunnel), jeśli nie localhost
@@ -45,6 +47,7 @@ services:
         condition: service_healthy
     networks:
       - fiszki-net
+    restart: unless-stopped
 
   fiszki-rest:
     container_name: fiszki-rest
@@ -62,6 +65,7 @@ services:
         condition: service_healthy
     networks:
       - fiszki-net
+    restart: unless-stopped
 
   fiszki-gateway:
     container_name: fiszki-gateway
@@ -75,6 +79,7 @@ services:
       - fiszki-rest
     networks:
       - fiszki-net
+    restart: unless-stopped
 
   fiszki-web:
     container_name: fiszki-web
