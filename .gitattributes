@@ -1,0 +1,3 @@
+# Skrypty shell w kontenerze Linux muszą mieć LF (unikaj CRLF / bad interpreter)
+*.sh text eol=lf
+docker/postgres/** text eol=lf
